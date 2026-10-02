@@ -674,3 +674,5 @@ async function boot(){
   if(after==='rank')openRanking();
 }
 boot();
+// installable as an app (home screen). The worker caches nothing (public/sw.js)
+if('serviceWorker' in navigator&&!import.meta.env.DEV)addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
