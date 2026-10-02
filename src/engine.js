@@ -44,8 +44,9 @@ const rnd=globalThis.crypto&&globalThis.crypto.getRandomValues?()=>globalThis.cr
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 
 // Fixed game settings for every game (VS CPU and VS Player; 2026-10-02 さつき): stack 200, ante 5 on each of the 10 lines,
+// No Limit (all-in up to what the opponent can cover; limit 'pot' = the former Pot Limit, kept for comparisons),
 // NL min raise (at least the ante, or the largest raise so far on that line), first player at random.
-const RULES=Object.freeze({stack:200,ante:5,minRaiseMode:'last',first:'random'});
+const RULES=Object.freeze({stack:200,ante:5,limit:'none',minRaiseMode:'last',first:'random'});
 function newGame(cfg){
   const g={cfg:Object.assign({},RULES,cfg),log:[],popups:[],ver:0,over:false,winner:null};
   g.cfg.minRaise=g.cfg.ante; // ミニマムレイズ幅の下限＝アンティ
@@ -70,7 +71,7 @@ const visibleTo=(g,c,p)=>{const b=g.board[c];return b&&(b.owner===p||b.rev)};
 function raiseRange(g,p,L){
   const my=g.contrib[L][p],opp=g.contrib[L][1-p];
   const top=Math.max(my,opp),call=top-my,potAfter=my+opp+call;
-  let maxTo=top+potAfter;const cap=my+g.stacks[p];
+  let maxTo=g.cfg.limit==='pot'?top+potAfter:Infinity;const cap=my+g.stacks[p];
   if(cap<=top)return null;
   const eff=opp+g.stacks[1-p]; // never more than the opponent can match
   maxTo=Math.min(maxTo,cap,eff);if(maxTo<=top)return null;
@@ -122,11 +123,13 @@ function doBetRaw(g,p,act,to){
   const b=g.betting;if(!b||b.toAct!==p)throw new Error('not your bet');
   const L=b.line,o=1-p,lg=bettingLegal(g);
   if(act==='fold'&&lg.mode==='facing'){
-    const pot=g.contrib[L][0]+g.contrib[L][1];g.stacks[o]+=pot;
-    rec(g,L,p,'フォールド',g.contrib[L][p]);
-    g.done[L]={L,winner:o,pot,folded:true,folder:p,contrib:[...g.contrib[L]]};revealLine(g,L);
-    addLog(g,`{${p}} fold · {${o}} wins ${pot} (no show)`,p);
-    g.popups.push({type:'fold',L,winner:o,pot,folder:p});return nextCompletion(g);
+    // the uncalled part of the last bet goes back first; the winner takes the matched pot
+    const c=g.contrib[L],ret=c[o]-c[p];if(ret>0){g.stacks[o]+=ret;c[o]-=ret}
+    const pot=c[0]+c[1];g.stacks[o]+=pot;
+    rec(g,L,p,'フォールド',c[p]);
+    g.done[L]={L,winner:o,pot,ret,folded:true,folder:p,contrib:[...c]};revealLine(g,L);
+    addLog(g,`{${p}} fold · {${o}} wins ${pot} (no show${ret>0?` · uncalled ${ret} returned`:''})`,p);
+    g.popups.push({type:'fold',L,winner:o,pot,ret,folder:p});return nextCompletion(g);
   }
   if(act==='call'&&lg.mode==='facing'){const r=callLine(g,p,L);rec(g,L,p,'コール',g.contrib[L][p]);addLog(g,`{${p}} call ${r.pay}${r.ref?` · all-in (uncalled ${r.ref} returned)`:g.stacks[p]===0?' · all-in':''}`,p);return pendSd(g,L)}
   if(act==='check'&&lg.mode==='open'){

@@ -26,9 +26,10 @@
 
 ### ゲーム設定（全ゲーム共通・固定。2026-10-02 さつき）
 
-- **Stack 200・Ante 5（全 10 line に各 5）・Min raise NL・先手／後手ランダム**。VS CPU も VS Player も同じで、変更する画面は無い。
+- **Stack 200・Ante 5（全 10 line に各 5）・No Limit・Min raise NL・先手／後手ランダム**。VS CPU も VS Player も同じで、変更する画面は無い。
 - **終局**: 25 マスが埋まったら stack の多い方の勝ち。途中で stack が 0 になったら、完成したラインがすべて決着した時点（showdown の後）で終了し、0 になった側の負け（2026-10-02 さつき）。残りのラインの ante はそのまま（精算しない）。実装は `src/engine.js` の `afterCompletions`→`finish(g, bust)`（`g.bust` に 0 になった席）。ルールのモーダル（勝敗の表とガイド 08・09）も同じ内容。
-- Min raise NL＝そのラインでこれまでの最大の raise 幅以上（最低は ante 額の 5）。Pot Limit の上限・相手が cover できない額は不可、は従来どおり。
+- **No Limit**（2026-10-02 さつき。それまでは Pot Limit）: bet / raise の上限は all-in。ただし相手が cover できる額まで（自分と相手の stack の小さい方＝effective stack）。
+- Min raise NL＝そのラインでこれまでの最大の raise 幅以上（最低は ante 額の 5）。残りがそれ未満なら、その額の all-in は可。
 - 実装は `src/engine.js` の `RULES`（`newGame` の既定値。サーバーの `PVP_CFG` も同じもの）。ルールのモーダル（`index.html`）にも同じ内容を書く。
 
 ### VS Player の決まり（`server/game/rules.js`）

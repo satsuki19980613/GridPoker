@@ -1,7 +1,7 @@
 // Rules engine: whole games with the CPU and with random legal actions keep every invariant.
 import{test}from'node:test';
 import assert from'node:assert/strict';
-import{newGame,actor,doBet,bettingLegal,eval5,bestHole,autoMove,forfeit}from'../src/engine.js';
+import{newGame,actor,doBet,bettingLegal,raiseRange,eval5,bestHole,autoMove,forfeit}from'../src/engine.js';
 import{cpuMove}from'../src/cpu.js';
 
 const CFGS=[{stack:200,ante:5,minRaiseMode:'fixed'},{stack:200,ante:5,minRaiseMode:'last'},{stack:100,ante:5,minRaiseMode:'fixed'},{stack:100,ante:1,minRaiseMode:'last'},{stack:300,ante:10,minRaiseMode:'fixed'}];
@@ -61,4 +61,19 @@ test('time-out move: random placement, or check / fold',()=>{
   const g=newGame({first:'you'});autoMove(g,0);
   assert.equal(g.board.filter(Boolean).length,1);assert.equal(g.hands[0].length,4);
   assert.throws(()=>autoMove(g,0),/not your turn/);
+});
+
+test('No Limit: bet up to all-in, capped at what the opponent can cover; limit pot keeps the old cap',()=>{
+  const g=newGame({first:'you'});
+  // complete Line 1 by hand: both seats' antes are in, stacks 150 / 150
+  g.stacks=[150,90];g.board=g.board.map((x,i)=>i<5?{card:i,owner:0,rev:true}:null);g.phase='betting';g.betting={line:0,toAct:0,mode:'open',checks:0,raises:0};
+  assert.deepEqual(raiseRange(g,0,0),[10,95],'open: min ante, max = the opponent stack (90) + 5 already in');
+  assert.deepEqual(raiseRange(g,1,0),[10,95],'the short stack can shove all of it');
+  g.cfg.limit='pot';assert.deepEqual(raiseRange(g,0,0),[10,15],'Pot Limit: max = pot (10) on top of 5');
+  g.cfg.limit='none';doBet(g,0,'raise',95);
+  assert.equal(g.stacks[0],60);assert.deepEqual(bettingLegal(g).raise,null,'the opponent cannot re-raise: all-in to call');
+  assert.equal(bettingLegal(g).allin,true);
+  doBet(g,1,'fold');
+  assert.equal(g.stacks[0],160,'uncalled 90 back + the matched pot 10');
+  assert.equal(g.done[0].pot,10);assert.equal(g.done[0].ret,90);assert.deepEqual(g.done[0].contrib,[5,5]);
 });

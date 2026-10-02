@@ -272,8 +272,9 @@ const head=(eye,title,cls='')=>`<div class="eyebrow">${eye}</div><h2${cls?` clas
 function openDlg(id){const d=$(id);hideTip();if(!d.open)d.showModal()}
 function sliderHTML(lo,hi,top,potAfter,verb){
   if(ui.raiseTo===null||ui.raiseTo<lo||ui.raiseTo>hi)ui.raiseTo=lo;
-  const potMax=top+potAfter,half=Math.min(hi,Math.max(lo,top+Math.floor(potAfter/2)));
-  const qs=[['min',lo],['½ pot',half],[hi===potMax?'pot':'max',hi]].filter((q,i,arr)=>arr.findIndex(x=>x[1]===q[1])===i);
+  // No Limit: the top button is all-in (or the most the opponent can cover); pot sizes are shortcuts below it
+  const L=G.betting.line,allIn=G.contrib[L][ME]+G.stacks[ME],fit=v=>Math.min(hi,Math.max(lo,v));
+  const qs=[['min',lo],['½ pot',fit(top+Math.floor(potAfter/2))],['pot',fit(top+potAfter)],[hi===allIn?'all-in':'max',hi]].filter((q,i,arr)=>arr.findIndex(x=>x[1]===q[1])===i);
   return`<div class="slider"><div class="slider-top"><span>${verb==='Raise'?'raise to':'bet'}</span><b id="rtv">${ui.raiseTo}</b></div>
     <input type="range" id="rto" min="${lo}" max="${hi}" step="1" value="${ui.raiseTo}" ${lo===hi?'disabled':''} aria-label="${verb} amount">
     <div class="quick">${qs.map(([k,v])=>`<button data-q="${v}" type="button" aria-pressed="${v===ui.raiseTo}">${k}<b>${v}</b></button>`).join('')}</div></div>`;
@@ -295,7 +296,7 @@ function popupHTML(pp){
   const next=G.popups.length-ui.popIdx>1?'次へ':'続ける';
   if(pp.type==='fold')
     return head(`${lineName(pp.L)} · fold`,`${WS(pp.winner)} wins ${pp.pot}`,pp.winner===ME?'y':'c')+
-      `<p class="sub">${WS(pp.folder)} fold · no show</p><div class="btns"><button class="btn primary" data-act="ack" type="button">${next}</button></div>`;
+      `<p class="sub">${WS(pp.folder)} fold · no show${pp.ret?` · uncalled ${pp.ret} returned`:''}</p><div class="btns"><button class="btn primary" data-act="ack" type="button">${next}</button></div>`;
   const w=pp.winner;
   const row=(p)=>`<span class="who2 ${p===ME?'y':'c'}">${WS(p)}</span><div class="row${p===OP?' c':''}">${pp.hands[p].map((c,i)=>`<span style="display:contents;--i:${i}">${cardHTML(c,{used:pp.pairs[p].includes(c),dim:!pp.pairs[p].includes(c)})}</span>`).join('')}<span class="hn late${w!==null&&w!==p?' lose':''}">${pp.names[p]}</span></div>`;
   return head(`${lineName(pp.L)} · showdown`,`<span class="late" style="display:inline-block">${w===null?`split ${pp.pot}`:`${WS(w)} wins ${pp.pot}`}</span>`,w===null?'e':w===ME?'y':'c')+

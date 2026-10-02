@@ -40,15 +40,19 @@ function cpuPlace(g,p){
 }
 function cpuBet(g,p){
   const b=g.betting,L=b.line,lg=bettingLegal(g),e=seatEquity(g,p,L,90);
-  const pot=g.contrib[L][0]+g.contrib[L][1];
+  const pot=g.contrib[L][0]+g.contrib[L][1],top=Math.max(...g.contrib[L]);
+  // No Limit sizing in pot terms: all-in only with a very strong hand, or when the bet would be most of the stack
+  // (tuned by self-play, 2026-10-02: beats the former Pot Limit CPU 64% and an always-all-in player 78% under No Limit)
+  const size=(f,shove)=>{const[lo,hi]=lg.raise,call=top-g.contrib[L][p],v=Math.round(top+(pot+call)*f);return Math.min(hi,Math.max(lo,shove||v>=hi*.7?hi:v))};
   if(lg.mode==='open'){
-    if(lg.raise&&e>.64){const[lo,hi]=lg.raise;return doBet(g,p,'raise',e>.85?hi:Math.round(lo+(hi-lo)*.6))}
+    if(lg.raise&&e>.62)return doBet(g,p,'raise',e>.8?size(1.5,e>.88):size(.75));
     if(lg.raise&&Math.random()<.1)return doBet(g,p,'raise',lg.raise[0]);
     return doBet(g,p,'check');
   }
-  const call=lg.toCall,po=call/(pot+call);
-  if(lg.raise&&e>.8&&b.raises<4){const[lo,hi]=lg.raise;return doBet(g,p,'raise',e>.9?hi:Math.round(lo+(hi-lo)*.5))}
-  if(e>=po-.03||Math.random()<.04)return doBet(g,p,'call');
+  // calling: pot odds, plus a margin that grows with the bet (a big bet usually means a strong hand)
+  const call=lg.toCall,before=pot-(top-Math.min(...g.contrib[L])),po=call/(pot+call),need=po-.03+.18*Math.min(1.5,call/Math.max(10,before));
+  if(lg.raise&&e>.8&&b.raises<4)return doBet(g,p,'raise',size(e>.9?1:.6,e>.92));
+  if(e>=need||Math.random()<.04)return doBet(g,p,'call');
   return doBet(g,p,'fold');
 }
 function cpuMove(g,p){if(g.phase==='place')return cpuPlace(g,p);if(g.phase==='betting')return cpuBet(g,p)}

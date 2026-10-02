@@ -24,7 +24,7 @@ const STEPS=[
   {t:'置いて、引く',p:'自分の手番では、hand 4枚から1枚を空きマスに置き、すぐ1枚引く。handは常に4枚。',n:'置いたカードは、そのマスを通る行と列の2本のlineに入る。',run:stepPlace},
   {t:'伏せて置く',p:'置いたカードは、そのlineが完成するまで相手に見えない。相手のカードも裏向きのまま。',n:'カード右上の印：青は自分、オレンジは相手が置いたカード。',run:stepHidden},
   {t:'5枚でLine完成',p:'lineの5マスが埋まると完成。伏せていたカードがすべて表になり、board 5枚がそろう。',run:stepComplete},
-  {t:'Betting',p:'完成したlineで1ラウンドだけbetting。完成させた側から先にaction（check／bet、受けた側はcall／raise／fold）。',n:'foldすると、handを見せずに相手がpotを取る。stackを全部出したらall-in。',run:stepBet},
+  {t:'Betting',p:'完成したlineで1ラウンドだけbetting（No Limit：all-inまで）。完成させた側から先にaction。',n:'受けた側はcall／raise／fold。foldすると、handを見せずに相手がpotを取る。',run:stepBet},
   {t:'Showdown',p:'handから必ず2枚、boardから必ず3枚を使ったベスト5で比べ、強い方がpotを取る。同じ強さならsplit。',run:stepShowdown},
   {t:'Redeal',p:'lineが決着する（showdownかfold）たびに、両者のhandを山に戻し、4枚ずつ配り直す。',run:stepRedeal},
   {t:'終局',p:'25マスがすべて埋まったら終局。stackの多い方が勝ち（同じならdraw）。',n:'2本同時に完成したら行→列の順にbetting、両方終わってから同じ順でshowdown。',run:stepEnd},
