@@ -27,7 +27,8 @@ const STEPS=[
   {t:'Betting',p:'完成したlineで1ラウンドだけbetting。完成させた側から先にaction（check／bet、受けた側はcall／raise／fold）。',n:'foldすると、handを見せずに相手がpotを取る。stackを全部出したらall-in。',run:stepBet},
   {t:'Showdown',p:'handから必ず2枚、boardから必ず3枚を使ったベスト5で比べ、強い方がpotを取る。同じ強さならsplit。',run:stepShowdown},
   {t:'Redeal',p:'lineが決着する（showdownかfold）たびに、両者のhandを山に戻し、4枚ずつ配り直す。',run:stepRedeal},
-  {t:'終局',p:'25マスが埋まったら、stackの多い方が勝ち。途中でstackが0になったら、そのlineの決着時点で負け。',n:'2本同時に完成したら行→列の順にbetting、両方終わってから同じ順でshowdown。',run:stepEnd},
+  {t:'終局',p:'25マスがすべて埋まったら終局。stackの多い方が勝ち（同じならdraw）。',n:'2本同時に完成したら行→列の順にbetting、両方終わってから同じ順でshowdown。',run:stepEnd},
+  {t:'Stack 0で終局',p:'途中でstackが0になったら、そのlineのshowdownが終わった時点で終局。0になった側の負け。',n:'all-inでも、そのlineに勝てばstackが戻るので続く。未完成のlineのanteは精算しない。',run:stepBust},
 ];
 
 let ui=null,cur=0,tok=0,anims=[];
@@ -263,6 +264,39 @@ async function stepEnd(x){
   hl([]);await setStack(x,0,235);
   await x.wait(500);
   strip(`<span class="g-act"><span class="g-hn">GAME OVER</span><span class="g-w0">YOU</span><b>235</b><span class="g-dash">–</span><b>165</b><span class="g-w1">OPP</span></span>`);
+  await x.anim(ui.strip.firstElementChild,[{opacity:0},{opacity:1}],{duration:260});
+  await x.wait(2600);
+}
+
+// a mid-game stack of 0: OPP (10 left) calls all-in on Line 3, loses the showdown, and the game ends there
+const COL_B=lineCells(6),COL_D=lineCells(8);
+async function stepBust(x){
+  const me=best(SD0),op=best(OPH),pots=[...ANTE10];pots[6]=150;pots[8]=150;
+  const done=Array(10).fill(null);done[6]=0;done[8]=0;
+  scene({cells:[...new Set([...PRE4,...COL_B,...COL_D])],rev:[...COL_B,...COL_D],hands:[H1,OPH],pots,done,stacks:[310,10]});
+  await x.wait(800);
+  ui.cells[14].classList.add('target');
+  await place(x,0,2,14);hl([L3]);
+  await Promise.all([flip(x,10,0),flip(x,12,110)]);
+  await draw(x,0,K('3♣'));
+  await x.wait(500);
+  await addStrip(x,chip(0,'bet',10));stack(0,300);await potTo(x,L3,20);
+  await x.wait(900);
+  await addStrip(x,`<span class="g-act"><span class="g-w1">OPP</span><span class="chip-a k-call">CALL</span><b>10</b><span class="pill allin">ALL-IN</span></span>`);
+  await setStack(x,1,0);await potTo(x,L3,30);
+  await x.wait(1100);
+  strip('');setHand(1,OPH,true);
+  await Promise.all([...ui.hands[1].children].map((el,i)=>x.anim(el.firstElementChild,[{transform:'perspective(600px) rotateY(90deg)'},{transform:'none'}],{duration:500,delay:i*110,easing:EASE,fill:'backwards'})));
+  markBest(0,me);await addStrip(x,`<span class="g-act"><span class="g-w0">YOU</span><span class="g-hn">${me.name}</span></span>`);
+  await x.wait(1300);
+  clearBest();markBest(1,op);await addStrip(x,`<span class="g-act"><span class="g-w1">OPP</span><span class="g-hn">${op.name}</span></span>`);
+  await x.wait(1300);
+  clearBest();hl([]);
+  strip(`<span class="g-act"><span class="g-w0">YOU</span><span class="g-hn">WIN</span><b>+30</b></span>`);
+  await Promise.all([potTo(x,L3,30,0),setStack(x,0,330)]);
+  await x.wait(900);
+  await pulse(x,ui.stks[1]);
+  strip(`<span class="g-act"><span class="g-hn">GAME OVER</span><span class="g-w1">OPP</span><span class="g-hn">stack 0</span><span class="g-dash">·</span><span class="g-w0">YOU</span><span class="g-hn">WIN</span></span>`);
   await x.anim(ui.strip.firstElementChild,[{opacity:0},{opacity:1}],{duration:260});
   await x.wait(2600);
 }

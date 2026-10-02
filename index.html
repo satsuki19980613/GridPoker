@@ -79,6 +79,11 @@
       <dt>Min raise</dt><dd>NL：そのlineでこれまで最大のraise幅以上（最低5）</dd>
       <dt>先手／後手</dt><dd>ランダム（先手13枚・後手12枚）</dd>
     </dl>
+    <h3 class="r-h">勝敗</h3>
+    <dl class="spec">
+      <dt>25マス</dt><dd>全マスが埋まったら終局。stackの多い方の勝ち（同じならDraw）</dd>
+      <dt>Stack 0</dt><dd>途中でstackが0になったら、そのlineのshowdownが終わった時点で終局し、0になった側の負け。all-inでも、そのlineに勝てば続く。未完成のlineのanteは精算しない</dd>
+    </dl>
     <h3 class="r-h">VS Player</h3>
     <dl class="spec">
       <dt>持ち時間</dt><dd>1 action 60秒（line完成時は+6秒）</dd>
