@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Grid Poker</title>
+<meta name="description" content="5×5のグリッドで10本のラインを同時に戦うポーカー。VS CPU と VS Player。">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/src/style.css">
+<script src="/theme.js"></script>
+</head>
+<body data-screen="menu">
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <span>Grid Poker</span>
+    </div>
+    <nav class="navpill" aria-label="メニュー">
+      <span class="prog ingame" id="roundLbl"></span>
+      <button class="nbtn" id="rulesBtn" type="button">ルール</button>
+      <button class="nbtn ingame" id="logBtn" type="button">ログ</button>
+      <button class="nbtn ingame" id="menuBtn" type="button">メニュー</button>
+    </nav>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="表示テーマを切り替える"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg></button>
+  </header>
+  <section class="menu" id="menu" aria-label="メニュー">
+    <div class="menu-in">
+      <div class="wordmark">Grid Poker</div>
+      <div class="acct" id="acct"></div>
+      <button class="mbtn" id="vsCpu" type="button">VS CPU</button>
+      <button class="mbtn" id="vsPlayer" type="button" aria-expanded="false" aria-controls="lobby">VS Player</button>
+      <div class="lobby" id="lobby" hidden></div>
+      <button class="mbtn" id="rankBtn" type="button">Ranking</button>
+    </div>
+  </section>
+  <main class="stage" aria-label="テーブル">
+    <div class="seat cpu" id="seatCpu"></div>
+    <div class="board" id="board" role="grid" aria-label="5×5の盤面"></div>
+    <div class="handrow you" id="handRow">
+      <div class="who" id="youWho"></div>
+      <div class="hand" id="hand" aria-label="Your hand"></div>
+      <div class="stack" id="youStack"></div>
+    </div>
+    <div class="dock" id="action" aria-live="polite"></div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<div id="tip" hidden></div>
+
+<dialog id="resDlg"><div class="dlg" id="resBody"></div></dialog>
+<dialog id="raiseDlg" class="sm"><div class="dlg" id="raiseBody"></div></dialog>
+<dialog id="overDlg"><button class="x" data-close type="button" aria-label="閉じる"></button><div class="dlg" id="overBody"></div></dialog>
+<dialog id="logDlg"><button class="x" data-close type="button" aria-label="閉じる"></button><div class="dlg" id="logBody"></div></dialog>
+<dialog id="lineDlg" class="sm"><button class="x" data-close type="button" aria-label="閉じる"></button><div class="dlg" id="lineBody"></div></dialog>
+
+<dialog id="rankDlg"><button class="x" data-close type="button" aria-label="閉じる"></button><div class="dlg" id="rankBody"></div></dialog>
+<dialog id="profDlg" class="sm"><button class="x" data-close type="button" aria-label="閉じる"></button><div class="dlg" id="profBody"></div></dialog>
+<dialog id="confirmDlg" class="sm"><div class="dlg" id="confirmBody"></div></dialog>
+
+<dialog id="setupDlg"><button class="x" data-close type="button" aria-label="閉じる"></button>
+  <div class="dlg">
+    <div class="eyebrow">VS CPU</div>
+    <div class="wordmark">Grid Poker</div>
+    <div class="field"><label>Stack</label><div class="seg" data-key="stack"><button data-v="100">100</button><button data-v="200">200</button><button data-v="300">300</button></div></div>
+    <div class="field"><label>Ante<span class="hint">×10 lines</span></label><div class="seg" data-key="ante"><button data-v="1">1</button><button data-v="5">5</button><button data-v="10">10</button></div></div>
+    <div class="field"><label>Min raise<span class="hint">Fixed = ante／NL = largest raise on the line</span></label><div class="seg" data-key="minRaiseMode"><button data-v="fixed">Fixed</button><button data-v="last">NL</button></div></div>
+    <div class="field"><label>先手</label><div class="seg" data-key="first"><button data-v="you">YOU</button><button data-v="cpu">CPU</button><button data-v="random">ランダム</button></div></div>
+    <div class="err" id="setupErr" role="alert" hidden>Stack must exceed ante ×10</div>
+    <div class="btns"><button class="btn ghost" id="openRules2" type="button">ルール</button><button class="btn primary" id="startBtn" type="button">開始</button></div>
+  </div>
+</dialog>
+
+<dialog id="rulesDlg"><button class="x" data-close type="button" aria-label="閉じる"></button>
+  <div class="dlg">
+    <div class="eyebrow">Rules</div>
+    <h2>ルール</h2>
+    <h3>構成</h3>
+    <ul><li>5×5の盤面。行1〜5と列a〜eの10 lineが、それぞれ独立したpot（board 5枚）。マスはa1〜e5で表す。</li>
+      <li>開始時に全lineへante。handは常に4枚。</li></ul>
+    <h3>ターン</h3>
+    <ul><li>hand 4枚から1枚を空きマスに伏せて置き、すぐ1枚draw。</li>
+      <li>相手が置いたカードはline完成まで見えない。</li>
+      <li>5枚目でline完成。boardをオープンし、1ラウンドのみbetting。完成させた側からaction。</li>
+      <li>showdownはhandから必ず2枚＋boardから必ず3枚のベスト5。</li>
+      <li>2 line同時完成は行→列の順にaction、両方closeしてから行→列の順でshowdown。</li>
+      <li>lineが決着するたびに両者のhandを戻し、4枚ずつredeal。</li></ul>
+    <h3>Betting</h3>
+    <ul><li>Pot Limit。相手がcoverできない額はbet不可。</li>
+      <li>Min raiseは設定で選択（Fixed＝ante額／NL＝そのlineの最大raise幅）。</li>
+      <li>stack 0になると、残りの全lineで投入済み額のままall-in扱い。</li></ul>
+    <h3>勝敗</h3>
+    <ul><li>25マスで終了。stackの多い方の勝ち。先手13枚・後手12枚なので、先後を入れ替えた2ゲーム制を推奨。</li></ul>
+    <h3>VS Player</h3>
+    <ul><li>Stack 200 · Ante 5 · Min raise Fixed。先手はランダム。</li>
+      <li>持ち時間は1アクション60秒。時間切れはランダムに配置、またはcheck／fold。3回連続で負け。</li>
+      <li>Ratingは1500から（Elo, K=32）。投了・時間切れ負けも1敗。</li></ul>
+  </div>
+</dialog>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "name": "grid-poker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Grid Poker — 5×5 grid poker (VS CPU / VS Player)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:prod": "vite --mode production",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test \"test/*.test.js\"",
+    "db:migrate": "node scripts/db.mjs migrate",
+    "deploy:game": "node scripts/deploy-game.mjs"
+  },
+  "dependencies": {
+    "@neon/functions": "^0.11.0",
+    "jose": "^6.2.12",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "neonctl": "^6.2.3",
+    "vite": "^8.3.1"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}
