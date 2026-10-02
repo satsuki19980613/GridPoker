@@ -95,7 +95,6 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--you);outline-of
 .pill.allin{border-color:transparent;background:var(--cpu-soft);color:var(--cpu);font-weight:700}
 .mini-hand{display:flex;gap:3px}
 .mini-hand .card{--w:16px}
-.mini-hand.new .card{animation:deal .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0ms)}
 /* flying chips */
 .fly{position:fixed;left:0;top:0;z-index:45;pointer-events:none;font-family:var(--f-num);font-weight:700;font-size:13px;line-height:1;padding:5px 8px;box-shadow:0 10px 22px -10px rgba(0,0,0,.55);font-variant-numeric:tabular-nums;will-change:transform}
 .fly.y{background:var(--you);color:#fff}
@@ -122,13 +121,10 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--you);outline-of
 .cell.hl{background:var(--glass-hi);box-shadow:inset 0 0 0 1.5px var(--ink)}
 .cell.target{cursor:pointer}
 .cell.target::after{content:"";width:16%;aspect-ratio:1;opacity:.55;background:linear-gradient(var(--ink),var(--ink)) center/100% 1px no-repeat,linear-gradient(var(--ink),var(--ink)) center/1px 100% no-repeat}
-.cell.target:hover,.cell.target:focus-visible{background:var(--glass-hi);box-shadow:inset 0 0 0 1.5px var(--you)}
-.cell.target:hover::after{opacity:1;background:linear-gradient(var(--you),var(--you)) center/100% 1.5px no-repeat,linear-gradient(var(--you),var(--you)) center/1.5px 100% no-repeat}
+.cell.target:focus-visible{background:var(--glass-hi);box-shadow:inset 0 0 0 1.5px var(--you)}
+@media (hover:hover){.cell.target:hover{background:var(--glass-hi);box-shadow:inset 0 0 0 1.5px var(--you)}}
+@media (hover:hover){.cell.target:hover::after{opacity:1;background:linear-gradient(var(--you),var(--you)) center/100% 1.5px no-repeat,linear-gradient(var(--you),var(--you)) center/1.5px 100% no-repeat}}
 .cell .card{--w:calc(var(--cell)*.86)}
-.cell.last::before{content:"";position:absolute;inset:-3px;border:1.5px solid var(--ink);pointer-events:none;z-index:2}
-.cell.last .card{animation:drop .35s cubic-bezier(.2,.8,.2,1)}
-.cell.flip .card{animation:flip .5s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0ms)}
-@keyframes drop{from{transform:scale(1.2) translateY(-8px);opacity:0}to{transform:none;opacity:1}}
 @keyframes flip{from{transform:rotateY(90deg)}to{transform:none}}
 .lab{display:grid;place-items:center;font-family:var(--f-num);font-size:calc(var(--cell)*.2);font-weight:500;color:var(--muted);opacity:.55;user-select:none;transition:opacity .15s,color .15s}
 .lab.hl{opacity:1;color:var(--ink)}
@@ -138,7 +134,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--you);outline-of
 .podwrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;position:relative;min-width:0}
 .pod{width:calc(var(--cell)*.66);height:calc(var(--cell)*.52);border:1px solid var(--hair-2);padding:0;background:none;position:relative;cursor:pointer}
 .pod .face{width:100%;height:100%;display:grid;place-items:center;font-family:var(--f-num);font-weight:600;font-size:calc(var(--cell)*.26);letter-spacing:-.04em;color:var(--ink);font-variant-numeric:tabular-nums}
-.pod:hover .face{color:var(--you-text)}
+@media (hover:hover){.pod:hover .face{color:var(--you-text)}}
 .pod.done .face{color:var(--muted)}
 .pod.done{border-color:transparent}
 .pod.done.w0 .face{background:var(--you);color:#fff}
@@ -174,21 +170,20 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--you);outline-of
 .hand{position:relative;display:flex;gap:calc(var(--cell)*.12);align-items:flex-end}
 /* best combination (betting round) */
 .cell .card,.hcard .card{transition:opacity .25s,box-shadow .25s,transform .25s}
-.cell.best .card{box-shadow:0 0 0 2px var(--you-text),0 10px 20px -10px rgba(51,107,135,.7);transform:translateY(-2px)}
+.cell.best .card{box-shadow:0 0 0 2px var(--you-text),0 10px 20px -10px rgba(51,107,135,.7)}
 .cell.nobest .card{opacity:.38}
 .hcard.best{transform:translateY(-4px)}
 .hcard.best .card{box-shadow:0 0 0 2px var(--you-text),0 14px 26px -12px rgba(51,107,135,.6)}
 .hcard.nobest .card{opacity:.38}
-.best-cap{position:absolute;left:50%;bottom:calc(100% + 5px);transform:translateX(-50%);white-space:nowrap;font-family:var(--f-num);font-size:11px;line-height:1.2;font-weight:600;color:var(--you-text);pointer-events:none;animation:capIn .3s cubic-bezier(.2,.8,.2,1) both}
+.best-cap{position:absolute;left:50%;bottom:calc(100% + 5px);transform:translateX(-50%);white-space:nowrap;font-family:var(--f-num);font-size:11px;line-height:1.2;font-weight:600;color:var(--you-text);pointer-events:none}
 @keyframes capIn{from{opacity:0;transform:translate(-50%,4px)}to{opacity:1;transform:translate(-50%,0)}}
 .best-cap b{font-size:10px;letter-spacing:.16em;color:var(--muted);margin-right:8px;font-weight:600}
 .hcard{border:0;background:none;padding:0;cursor:pointer;transition:transform .2s cubic-bezier(.2,.8,.2,1)}
 .hcard .card{--w:var(--hw,calc(var(--cell)*.84))}
-.hcard:hover:not(:disabled){transform:translateY(-5px)}
+@media (hover:hover){.hcard:hover:not(:disabled):not(.sel){transform:translateY(-5px)}}
 .hcard.sel{transform:translateY(-11px)}
 .hcard.sel .card{box-shadow:0 0 0 2px var(--you),0 18px 30px -12px rgba(51,107,135,.5)}
 .hcard:disabled{cursor:default}
-.hcard.new .card{animation:deal .45s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0ms)}
 @keyframes deal{from{transform:translateY(-24px) rotate(-5deg);opacity:0}}
 
 /* ===== dock (action bar) ===== */
@@ -558,3 +553,4 @@ body.compact .ptag .lg{display:none}
 .chip-a.me.k-check{border-color:var(--you);color:var(--you-text)}
 .chip-a.me.k-fold{border-color:var(--hair-2);color:var(--muted)}
 .dk-amt.y{color:var(--you-text)}
+.tagslot{display:contents}

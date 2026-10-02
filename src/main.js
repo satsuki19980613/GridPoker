@@ -49,7 +49,7 @@ function plateOn(){
 }
 function plateHTML(p){
   const ln=p.k==='place'?cellName(p.cell):lineName(p.L);
-  return`<div class="plate k-${p.k}${Date.now()-p.t<250?' in':''}" role="status" aria-label="${opTag()} ${PL[p.k]}${p.amt!=null?' '+p.amt:''} ${ln}"><span class="chip-a k-${p.k}">${PL[p.k]}</span>${p.amt!=null?`<span class="pv">${p.amt}</span>`:''}<span class="pl">${ln}</span></div>`;
+  return`<div class="plate k-${p.k}${Date.now()-p.t<250?' in':''}" data-t="${p.t}" role="status" aria-label="${opTag()} ${PL[p.k]}${p.amt!=null?' '+p.amt:''} ${ln}"><span class="chip-a k-${p.k}">${PL[p.k]}</span>${p.amt!=null?`<span class="pv">${p.amt}</span>`:''}<span class="pl">${ln}</span></div>`;
 }
 // your latest action on the line (shown in your panel while the opponent decides)
 function myLast(L){const h=G.hist[L];for(let i=h.length-1;i>=0;i--)if(h[i].p===ME){const k=AV[h[i].a];return{k,amt:k==='check'||k==='fold'?null:h[i].to}}return null}
@@ -101,16 +101,18 @@ function render(){
 const inPlayOf=p=>G.contrib.reduce((s,c,L)=>s+(G.done[L]?0:c[p]),0);
 const stackHTML=p=>`<span class="val">${Math.round(ui.disp?ui.disp[p]:G.stacks[p])}</span><span class="sub2">in pot ${inPlayOf(p)}</span>`;
 const tagsHTML=p=>`${G.first===p?'<span class="pill">先手</span>':''}${G.stacks[p]===0&&!G.over?'<span class="pill allin">ALL-IN</span>':''}`;
+const setHTML=(el,h)=>{if(el._h!==h){el.innerHTML=h;el._h=h;return true}return false};
 function renderSeats(){
-  queueMicrotask(()=>{ui.cpuGen=G.handGen});
-  const a=actor(G),live=!popup()&&!G.over;
+  const a=actor(G),live=!popup()&&!G.over,deal=ui.cpuGen!==G.handGen;ui.cpuGen=G.handGen;
   const sc=$('#seatCpu');sc.classList.toggle('off',live&&a===ME);
-  sc.innerHTML=`<div class="who"><i class="gem" aria-hidden="true"></i><span class="nm">${esc(opName())}</span>${tagsHTML(OP)}</div>
-    ${plateOn()?plateHTML(plateOn()):`<div class="mini-hand${ui.cpuGen!==G.handGen?' new':''}" aria-label="${opTag()} hand">${G.hands[OP].map((_,i)=>`<span style="display:contents;--d:${i*90}ms">${cardHTML(null)}</span>`).join('')}</div>`}
-    <div class="stack" aria-label="${opTag()} stack">${stackHTML(OP)}</div>`;
+  const pl=plateOn();
+  setHTML(sc,`<div class="who"><i class="gem" aria-hidden="true"></i><span class="nm">${esc(opName())}</span>${tagsHTML(OP)}</div>
+    ${pl?plateHTML(pl):`<div class="mini-hand" aria-label="${opTag()} hand">${G.hands[OP].map(()=>cardHTML(null)).join('')}</div>`}
+    <div class="stack" aria-label="${opTag()} stack">${stackHTML(OP)}</div>`);
+  if(deal&&!REDUCE)sc.querySelectorAll('.mini-hand .card').forEach((c,i)=>c.animate([{transform:'translateY(-14px) rotate(-5deg)',opacity:0},{transform:'none',opacity:1}],{duration:400,delay:i*90,easing:EASE,fill:'backwards'}));
   $('#handRow').classList.toggle('off',live&&a===OP);
-  $('#youWho').innerHTML=`<div class="line"><i class="gem" aria-hidden="true"></i><span class="nm">あなた</span></div><div class="tags">${tagsHTML(ME)}</div>`;
-  $('#youStack').innerHTML=stackHTML(ME);
+  setHTML($('#youWho'),`<div class="line"><i class="gem" aria-hidden="true"></i><span class="nm">あなた</span></div><div class="tags">${tagsHTML(ME)}</div>`);
+  setHTML($('#youStack'),stackHTML(ME));
 }
 function hlSet(){
   const s=new Set();const pp=popup();
@@ -120,48 +122,74 @@ function hlSet(){
   if(G.over&&ui.showLine!==null)s.add(ui.showLine);
   return s;
 }
+const setCls=(el,c)=>{if(el.className!==c)el.className=c};
+const setAttr=(el,k,v)=>{if(v==null){if(el.hasAttribute(k))el.removeAttribute(k)}else if(el.getAttribute(k)!==String(v))el.setAttribute(k,String(v))};
+function buildBoard(){
+  const pw=L=>`<div class="podwrap" data-pl="${L}"><button class="pod" data-line="${L}"><span class="face"></span></button><span class="tagslot"></span></div>`;
+  const lab=(L,t)=>`<div class="lab" data-ll="${L}" aria-hidden="true">${t}</div>`;
+  let h='';for(let c=5;c<10;c++)h+=pw(c);
+  h+='<div></div><div class="corner"><span>POT</span><b></b></div>';
+  for(let c=0;c<5;c++)h+=lab(5+c,'abcde'[c]);
+  h+='<div></div><div></div>';
+  for(let r=0;r<5;r++){for(let col=0;col<5;col++)h+=`<button class="cell" data-cell="${r*5+col}"></button>`;h+=lab(r,r+1)+pw(r)}
+  const b=$('#board');b.innerHTML=h;
+  const bd={cells:[...b.querySelectorAll('.cell')],pods:[],labs:[],corner:b.querySelector('.corner')};
+  b.querySelectorAll('.podwrap').forEach(el=>{bd.pods[+el.dataset.pl]={wrap:el,pod:el.querySelector('.pod'),face:el.querySelector('.face'),tag:el.querySelector('.tagslot')}});
+  b.querySelectorAll('.lab').forEach(el=>{bd.labs[+el.dataset.ll]=el});
+  ui.bd=bd;
+}
 function renderBoard(){
-  const hl=hlSet(),hlCells=new Set();for(const L of hl)lineCells(L).forEach(c=>hlCells.add(c));
+  if(!ui.bd||!ui.bd.corner.isConnected)buildBoard();
+  const bd=ui.bd,hl=hlSet(),hlCells=new Set();for(const L of hl)lineCells(L).forEach(c=>hlCells.add(c));
   const canPlace=G.phase==='place'&&actor(G)===ME&&ui.sel!==null&&!popup()&&!ui.busy;
   const bc=bestCombo();
   const pl=plateOn(),hotL=pl&&(pl.k==='bet'||pl.k==='raise')?pl.L:null,hotCells=new Set(hotL===null?[]:lineCells(hotL));
-  const pod=L=>{
-    const c=G.contrib[L],d=G.done[L];let cls='pod',face,tag='',lab;
+  for(let L=0;L<10;L++){
+    const p=bd.pods[L],c=G.contrib[L],d=G.done[L];let cls='pod',face,tag='',lab;
     if(d){
       cls+=` done${d.winner!==null?' w'+sc(d.winner):''}`;face=d.pot;
       const t=d.folded?`${WS(d.folder)} fold`:d.winner===null?'split':`${WS(d.winner)} win`;
       tag=`<span class="ptag${d.winner!==null?' w'+sc(d.winner):''}">${t}</span>`;lab=`${lineName(L)}：${t}`;
     }else{
-      const tot=c[0]+c[1],ls=lineState(L);face=tot;
+      face=c[0]+c[1];
       if(G.pendingSd.includes(L))tag='<span class="ptag">SD<span class="lg"> pending</span></span>';
-      lab=`${lineName(L)}：pot ${tot}`;
+      lab=`${lineName(L)}：pot ${face}`;
     }
-    return`<div class="podwrap${hl.has(L)?' hl':''}${L===hotL?' hot':''}" data-pl="${L}"><button class="${cls}" data-line="${L}" aria-label="${lab}"><span class="face">${face}</span></button>${tag}</div>`;
-  };
-  const lab=(L,t)=>`<div class="lab${hl.has(L)?' hl':''}${L===hotL?' hot':''}" data-ll="${L}" aria-hidden="true">${t}</div>`;
-  const live=G.contrib.reduce((s,c,L)=>s+(G.done[L]?0:c[0]+c[1]),0);
-  let h='';for(let c=5;c<10;c++)h+=pod(c);
-  h+=`<div></div><div class="corner" aria-label="Total pot ${live}"><span>POT</span><b>${live}</b></div>`;
-  for(let c=0;c<5;c++)h+=lab(5+c,'abcde'[c]);
-  h+='<div></div><div></div>';
-  for(let r=0;r<5;r++){
-    for(let col=0;col<5;col++){
-      const cell=r*5+col,b=G.board[cell];
-      let cls='cell';if(hlCells.has(cell))cls+=' hl';if(hotCells.has(cell))cls+=' hot';if(bc&&bc.cells.includes(cell))cls+=bc.tri.includes(cell)?' best':' nobest';if(cell===G.lastCell&&!popup())cls+=' last';
-      if(b&&b.rev){cls+=' rev';if(ui.flip.has(cell))cls+=' flip'}const fd=ui.flipDelay&&ui.flipDelay.get(cell);
-      let inner='';
-      if(b)inner=b.owner===ME||b.rev?cardHTML(b.card,{owner:b.owner}):cardHTML(null);
-      else if(canPlace)cls+=' target';
-      const al=`${cellName(cell)}${b?(b.owner===ME?'：あなたのカード':b.rev?'：相手のカード（オープン）':'：相手のカード'):'：空き'}`;
-      h+=`<button class="${cls}"${fd!=null&&ui.flip.has(cell)?` style="--d:${fd}ms"`:''} data-cell="${cell}" aria-label="${al}" ${!b&&canPlace?'':'tabindex="-1"'}>${inner}</button>`;
-    }
-    h+=lab(r,r+1)+pod(r);
+    setCls(p.wrap,`podwrap${hl.has(L)?' hl':''}${L===hotL?' hot':''}`);setCls(p.pod,cls);
+    if(p.face.textContent!==String(face))p.face.textContent=face;
+    setHTML(p.tag,tag);setAttr(p.pod,'aria-label',lab);
+    setCls(bd.labs[L],`lab${hl.has(L)?' hl':''}${L===hotL?' hot':''}`);
   }
-  $('#board').innerHTML=h;ui.flip.clear();
+  const live=G.contrib.reduce((s,c,L)=>s+(G.done[L]?0:c[0]+c[1]),0),cb=bd.corner.querySelector('b');
+  if(cb.textContent!==String(live))cb.textContent=live;setAttr(bd.corner,'aria-label',`Total pot ${live}`);
+  for(let cell=0;cell<25;cell++){
+    const el=bd.cells[cell],b=G.board[cell];
+    let cls='cell';if(hlCells.has(cell))cls+=' hl';if(hotCells.has(cell))cls+=' hot';if(bc&&bc.cells.includes(cell))cls+=bc.tri.includes(cell)?' best':' nobest';
+    if(b&&b.rev)cls+=' rev';
+    if(!b&&canPlace)cls+=' target';
+    setCls(el,cls);
+    setHTML(el,b?(b.owner===ME||b.rev?cardHTML(b.card,{owner:b.owner}):cardHTML(null)):'');
+    setAttr(el,'aria-label',`${cellName(cell)}${b?(b.owner===ME?'：あなたのカード':b.rev?'：相手のカード（オープン）':'：相手のカード'):'：空き'}`);
+    setAttr(el,'tabindex',!b&&canPlace?null:'-1');
+  }
+}
+// one-shot effects on the board (Web Animations: later updates never replay them)
+const EASE='cubic-bezier(.2,.8,.2,1)';
+function cardAt(cell){return ui.bd&&ui.bd.cells[cell].querySelector('.card')}
+function dropFx(cell){
+  const c=cardAt(cell);if(!c)return;
+  c.animate([{transform:'translateY(-6px) scale(1.04)',opacity:0},{transform:'none',opacity:1}],{duration:280,easing:EASE});
+  const ink=getComputedStyle(document.documentElement).getPropertyValue('--ink').trim()||'#000';
+  ui.bd.cells[cell].animate([{boxShadow:`inset 0 0 0 2px ${ink}`},{boxShadow:'inset 0 0 0 1px transparent'}],{duration:1100,easing:'ease-out'});
+}
+function flipFx(cell,delay){
+  const c=cardAt(cell);if(!c)return;
+  c.animate([{transform:'perspective(600px) rotateY(90deg)'},{transform:'none'}],{duration:FLIP_MS,delay,easing:EASE,fill:'backwards'});
 }
 function applyHover(){
   const hl=hlSet(),hlCells=new Set();for(const L of hl)lineCells(L).forEach(c=>hlCells.add(c));
   document.querySelectorAll('#board .cell').forEach(el=>el.classList.toggle('hl',hlCells.has(+el.dataset.cell)));
+  if(!ui.bd)return;
   document.querySelectorAll('#board .podwrap').forEach(el=>el.classList.toggle('hl',hl.has(+el.dataset.pl)));
   document.querySelectorAll('#board .lab').forEach(el=>el.classList.toggle('hl',hl.has(+el.dataset.ll)));
 }
@@ -174,11 +202,36 @@ function bestCombo(){
   ui.bestKey=key;ui.best={L,v,name:handName(v),pair,tri,cells};return ui.best;
 }
 function renderHand(){
-  const bc=bestCombo();
+  const bc=bestCombo(),hand=G.hands[ME],box=$('#hand');
   const my=actor(G)===ME&&G.phase==='place'&&!popup()&&!ui.busy;
   const fresh=ui.handGen!==G.handGen;ui.handGen=G.handGen;
   const nd=G.lastDraw[ME],showNew=nd!==ui.seenDraw;ui.seenDraw=nd;
-  $('#hand').innerHTML=G.hands[ME].map((c,i)=>`<button class="hcard${bc?(bc.pair.includes(c)?' best':' nobest'):''}${ui.sel===c?' sel':''}${fresh||(showNew&&c===nd)?' new':''}" style="--d:${fresh?i*90+120:0}ms" data-card="${c}" ${my?'':'disabled'} aria-pressed="${ui.sel===c}" aria-label="Hand card ${i+1}${bc&&bc.pair.includes(c)?' (best)':''}">${cardHTML(c)}</button>`).join('')+(bc?`<div class="best-cap" aria-live="polite"><b>BEST</b>${bc.name}</div>`:'');
+  let cap=box.querySelector('.best-cap');
+  if(!cap){cap=document.createElement('div');cap.className='best-cap';cap.setAttribute('aria-live','polite');cap.hidden=true;box.appendChild(cap)}
+  const old=[...box.querySelectorAll('.hcard')];
+  if(fresh||old.length!==hand.length||old.some((b,i)=>+b.dataset.card!==hand[i])){
+    const keep=new Map(fresh?[]:old.map(b=>[+b.dataset.card,b])),was=new Map();
+    for(const[c,b]of keep)was.set(c,b.getBoundingClientRect().left);
+    const nodes=hand.map(c=>{let b=keep.get(c);if(!b){b=document.createElement('button');b.className='hcard';b.dataset.card=c;b.innerHTML=cardHTML(c);b._deal=true}return b});
+    for(const b of old)if(!nodes.includes(b))b.remove();
+    nodes.forEach(b=>box.insertBefore(b,cap));
+    if(!REDUCE)nodes.forEach((b,i)=>{
+      const card=b.firstElementChild;
+      if(b._deal){b._deal=false;if(fresh||(showNew&&+b.dataset.card===nd))card.animate([{transform:'translateY(-24px) rotate(-5deg)',opacity:0},{transform:'none',opacity:1}],{duration:450,delay:fresh?i*90+120:0,easing:EASE,fill:'backwards'});return}
+      const dx=(was.get(+b.dataset.card)??0)-b.getBoundingClientRect().left;
+      if(Math.abs(dx)>1)card.animate([{transform:`translateX(${dx}px)`},{transform:'none'}],{duration:260,easing:EASE});
+    });
+  }
+  [...box.querySelectorAll('.hcard')].forEach((b,i)=>{
+    const c=+b.dataset.card,best=bc&&bc.pair.includes(c);
+    setCls(b,`hcard${bc?(best?' best':' nobest'):''}${ui.sel===c?' sel':''}`);
+    b.disabled=!my;setAttr(b,'aria-pressed',String(ui.sel===c));setAttr(b,'aria-label',`Hand card ${i+1}${best?' (best)':''}`);
+  });
+  const ck=bc?bc.L+':'+bc.name:'';
+  if(cap._k!==ck){
+    cap._k=ck;cap.hidden=!bc;
+    if(bc){cap.innerHTML=`<b>BEST</b>${bc.name}`;if(!REDUCE)cap.animate([{opacity:0,translate:'0 4px'},{opacity:1,translate:'0 0'}],{duration:300,easing:EASE})}
+  }
 }
 function renderDock(){
   const el=$('#action');const a=actor(G),pp=popup();let top='',row='',idle=false;
@@ -208,7 +261,9 @@ function renderDock(){
   }
   el.classList.toggle('idle',idle);
   const lk=ui.lockUntil-Date.now();el.classList.toggle('lock',lk>0||ui.busy);if(lk>0){clearTimeout(ui.lockTimer);ui.lockTimer=setTimeout(renderDock,lk+20)}
-  el.innerHTML=(idle?top+clockHTML():`<div class="dk-top">${top}${clockHTML()}</div><div class="dk-row">${row}</div>`)+clockBar();
+  if(setHTML(el,idle?top+clockHTML():`<div class="dk-top">${top}${clockHTML()}</div><div class="dk-row">${row}</div>`))el._clk=null;
+  const ck=clockKey();if(el._clk!==ck){el._clk=ck;el.querySelector(':scope>.clock')?.remove();const bar=clockBar();if(bar)el.insertAdjacentHTML('beforeend',bar)}
+  tickClock();
 }
 
 /* ---------- modals ---------- */
@@ -277,21 +332,23 @@ function syncModals(){
   const wait=ui.holdUntil-Date.now();
   if(wait>0&&(popup()||G.over)){clearTimeout(ui.holdTimer);ui.holdTimer=setTimeout(()=>{render();syncModals();schedule()},wait);return}
   const d=$('#resDlg'),pp=popup();
-  if(pp){$('#resBody').innerHTML=popupHTML(pp);openDlg('#resDlg');if(pp.type==='showdown'&&!REDUCE){const bt=$('#resBody [data-act="ack"]');bt.disabled=true;setTimeout(()=>{bt.disabled=false;bt.focus()},1050)}}
-  else if(d.open)d.close();
+  const pk=pp?`${PV?PV.game:'cpu'}:${ui.popIdx}:${pp.type}:${pp.L}`:null;
+  if(pp&&(!d.open||ui.popKey!==pk)){ui.popKey=pk;$('#resBody').innerHTML=popupHTML(pp);openDlg('#resDlg');if(pp.type==='showdown'&&!REDUCE){const bt=$('#resBody [data-act="ack"]');bt.disabled=true;setTimeout(()=>{bt.disabled=false;bt.focus()},1050)}}
+  else if(!pp&&d.open){d.close();ui.popKey=null}
   if(!pp&&G.over&&!ui.overShown){ui.overShown=true;openOver()}
 }
 
 /* ---------- flow ---------- */
-let prevRev=new Set();
+let prevRev=new Set(),prevOcc=new Set();
 const REDUCE=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const FLIP_STEP=110,FLIP_MS=500,SD_BEAT=850,PUSH_MS=650;
 function afterChange(){
   ui.lastLogLen=G.log.length;
   const now=Date.now(),fresh=[];
-  const rev=new Set();G.board.forEach((b,i)=>{if(b&&b.rev)rev.add(i)});for(const i of rev)if(!prevRev.has(i)){ui.flip.add(i);fresh.push(i)}prevRev=rev;
+  const rev=new Set();G.board.forEach((b,i)=>{if(b&&b.rev)rev.add(i)});for(const i of rev)if(!prevRev.has(i))fresh.push(i);prevRev=rev;
+  const occ=new Set();G.board.forEach((b,i)=>{if(b)occ.add(i)});const placed=[...occ].filter(i=>!prevOcc.has(i));prevOcc=occ;
+  fresh.sort((a,b)=>a-b);
   // board reveal: one card at a time, then a beat before anyone acts
-  ui.flipDelay=new Map();fresh.sort((a,b)=>a-b).forEach((c,k)=>ui.flipDelay.set(c,k*FLIP_STEP));
   if(fresh.length&&!REDUCE){const beat=now+(Math.min(fresh.length,9)-1)*FLIP_STEP+FLIP_MS+300;ui.holdUntil=Math.max(ui.holdUntil,beat);if(actor(G)===ME)ui.lockUntil=Math.max(ui.lockUntil,beat)}
   const prev=ui.snap;ui.snap={contrib:G.contrib.map(c=>[...c]),done:G.done.map(d=>!!d),pops:G.popups.length};
   if(prev){
@@ -302,6 +359,7 @@ function afterChange(){
     if(ui.push.length)ui.stackHold=true;
   }
   hideTip();render();
+  if(!REDUCE){if(placed.length<=2)placed.filter(c=>!fresh.includes(c)).forEach(dropFx);if(fresh.length<=10)fresh.forEach((c,k)=>flipFx(c,k*FLIP_STEP))}
   // chips into the pot
   if(prev)for(let L=0;L<10;L++)for(const p of[ME,OP]){const d=ui.snap.contrib[L][p]-prev.contrib[L][p];if(d>0)fly(p===ME?'#youStack .val':'#seatCpu .stack .val',`#board .podwrap[data-pl="${L}"] .pod`,d,p)}
   if(!popup()&&ui.push.length)releasePush();else tweenStacks();
@@ -352,7 +410,7 @@ function schedule(){
   ui.timer=setTimeout(()=>{const ph=G.phase,hb=G.hist.map(h=>h.length);cpuMove(G,OP);ui.raiseTo=null;noteCpu(ph,hb);afterChange()},wait);
 }
 function resetTable(){
-  prevRev=new Set();
+  prevRev=new Set();prevOcc=new Set();
   for(const id of['#resDlg','#overDlg','#raiseDlg','#lineDlg','#logDlg','#confirmDlg','#rulesDlg'])if($(id).open)$(id).close();
   clearTimeout(ui.timer);clearTimeout(ui.holdTimer);
   ui={...ui,popIdx:0,busy:false,snap:null,push:[],stackHold:false,disp:G?[...G.stacks]:null,cpuGen:-1,flipDelay:null,plate:null,holdUntil:0,lockUntil:0,sel:null,raiseTo:null,hover:null,showLine:null,lastLogLen:0,handGen:-1,overShown:false};
@@ -488,12 +546,14 @@ function clockLeft(){
   if(MODE!=='pvp'||!G||G.over||!G.meta||G.meta.deadline==null||actor(G)===null)return null;
   return Math.max(0,G.meta.deadline-srvNow());
 }
-function clockHTML(){const l=clockLeft();if(l===null)return'';const s=Math.ceil(l/1000);return`<span class="secs${s<=10?' low':''}" id="secs">${s}</span>`}
+function clockHTML(){return clockLeft()===null?'':'<span class="secs" id="secs"></span>'}
+function clockKey(){return clockLeft()===null?null:`${G.meta.deadline}:${actor(G)}`}
+function tickClock(){const el=$('#secs'),l=clockLeft();if(!el||l===null)return;const s=String(Math.ceil(l/1000));if(el.textContent!==s)el.textContent=s;el.classList.toggle('low',+s<=10)}
 function clockBar(){
   const l=clockLeft();if(l===null)return'';
   return`<div class="clock ${actor(G)===ME?'me':'op'}" aria-hidden="true"><i style="--from:${(l/Math.max(TURN_MS,l)).toFixed(4)};animation-duration:${l}ms"></i></div>`;
 }
-setInterval(()=>{const el=$('#secs'),l=clockLeft();if(!el||l===null)return;const s=Math.ceil(l/1000);el.textContent=s;el.classList.toggle('low',s<=10)},250);
+setInterval(tickClock,250);
 
 /* ---------- VS Player: game ---------- */
 function stopPvp(){if(PV){clearTimeout(PV.t);PV.dead=true}PV=null}
@@ -511,7 +571,7 @@ function applyView(v){
   if(first){
     // resuming: do not replay old result windows or board flips
     ui.disp=[...G.stacks];ui.popIdx=G.popups.length;
-    prevRev=new Set();G.board.forEach((b,i)=>{if(b&&b.rev)prevRev.add(i)});
+    prevRev=new Set();prevOcc=new Set();G.board.forEach((b,i)=>{if(b){prevOcc.add(i);if(b.rev)prevRev.add(i)}});
   }else noteCpu(ph,hb);
   if(ui.sel!==null&&!G.hands[ME].includes(ui.sel))ui.sel=null;
   ui.raiseTo=null;
