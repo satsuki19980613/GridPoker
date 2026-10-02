@@ -313,7 +313,7 @@ function resultsHTML(){
 }
 function openOver(){
   const w=G.winner,f=G.forfeit,res=MODE==='pvp'&&G.meta?G.meta.result:null;
-  const why=f?`<p class="sub">${WS(f.p)} ${f.reason==='resign'?'resign':'time-out'}</p>`:'';
+  const why=f?`<p class="sub">${WS(f.p)} ${f.reason==='resign'?'resign':'time-out'}</p>`:G.bust!=null?`<p class="sub">${WS(G.bust)} stack 0</p>`:'';
   const rd=res?`<div class="rdelta">Rating<b>${res.after[ME]}</b><span class="${res.delta[ME]>0?'up':res.delta[ME]<0?'down':''}">${res.delta[ME]>0?'+':''}${res.delta[ME]}</span></div>`:'';
   $('#overBody').innerHTML=head('GAME OVER',w===null?'DRAW':WS(w)+' WIN',w===null?'e':w===ME?'y':'c')+why+
     `<div class="duel"><div class="y"><span>YOU</span><b>${G.stacks[ME]}</b></div><div class="c"><span>${esc(opName())}</span><b>${G.stacks[OP]}</b></div></div>${rd}${resultsHTML()}

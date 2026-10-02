@@ -24,14 +24,25 @@ function play(fuzz,i){
     if(g.phase==='place')assert.equal(g.pendingSd.length,0);
   }
   assert.ok(g.over,'game finishes');
-  assert.ok(g.done.every(Boolean),'every line is resolved');
-  assert.equal(g.stacks[0]+g.stacks[1],total);
+  if(g.bust!==undefined){
+    // ended early: the busted seat has 0 and loses; undecided lines hold only their antes
+    assert.equal(g.stacks[g.bust],0);assert.equal(g.winner,1-g.bust);
+    for(let L=0;L<10;L++)if(!g.done[L])assert.deepEqual(g.contrib[L],[cfg.ante,cfg.ante]);
+  }else{
+    assert.ok(g.board.every(x=>x!==null),'board is full');
+    assert.ok(g.done.every(Boolean),'every line is resolved');
+    assert.equal(g.stacks[0]+g.stacks[1],total);
+    assert.ok(g.stacks[0]>0&&g.stacks[1]>0,'a stack of 0 ends the game earlier');
+  }
   assert.ok(g.log.every(e=>!/\b(YOU|CPU)\b/.test(e.text)),'shared log text names seats only as {0}/{1}');
   return g;
 }
 
 test('200 games CPU vs CPU',()=>{for(let i=0;i<200;i++)play(false,i)});
-test('200 games with random legal actions and time-outs',()=>{for(let i=0;i<200;i++)play(true,i)});
+test('200 games with random legal actions and time-outs',()=>{
+  let busts=0;for(let i=0;i<200;i++)if(play(true,i).bust!==undefined)busts++;
+  assert.ok(busts>0,'some games end early with a stack of 0');
+});
 
 test('showdown uses exactly 2 hole cards and 3 board cards',()=>{
   const board=['As','Ks','Qs','Js','Ts'].map(c);

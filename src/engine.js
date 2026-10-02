@@ -159,6 +159,9 @@ function nextCompletion(g){g.queue.shift();g.betting=null;g.ver++;startCompletio
 function afterCompletions(g){
   const pl=g.pendingSd;g.pendingSd=[];
   for(const L of pl)showdownLine(g,L); // 横→縦の順（完成順）
+  // stack 0 after the lines are decided: the game ends here and that player loses (2026-10-02 さつき)
+  const bust=[0,1].filter(p=>g.stacks[p]===0);
+  if(bust.length)return finish(g,bust.length===1?bust[0]:null);
   // 完成した全ラインはフォールドかショーダウンで決着済み。決着したら必ず配り直す
   g.deck.push(...g.hands[0],...g.hands[1]);shuffle(g.deck);
   g.hands=[[g.deck.pop(),g.deck.pop(),g.deck.pop(),g.deck.pop()],[g.deck.pop(),g.deck.pop(),g.deck.pop(),g.deck.pop()]];
@@ -169,10 +172,12 @@ function endTurn(g){
   if(g.board.every(x=>x!==null))return finish(g);
   g.turn=1-g.turn;g.phase='place';g.ver++;
 }
-function finish(g){
-  g.over=true;g.phase='over';const s=g.stacks;
-  g.winner=s[0]===s[1]?null:(s[0]>s[1]?0:1);
-  addLog(g,`GAME OVER · {0} ${s[0]} / {1} ${s[1]} · ${g.winner===null?'DRAW':`{${g.winner}} WIN`}`,'sys');g.ver++;
+// bust: the seat whose stack reached 0 (undefined when the board is full). Undecided lines keep their antes.
+function finish(g,bust){
+  g.over=true;g.phase='over';g.betting=null;const s=g.stacks;
+  if(bust!==undefined){g.bust=bust;g.winner=bust===null?null:1-bust}
+  else g.winner=s[0]===s[1]?null:(s[0]>s[1]?0:1);
+  addLog(g,`GAME OVER${bust!=null?` · {${bust}} stack 0`:''} · {0} ${s[0]} / {1} ${s[1]} · ${g.winner===null?'DRAW':`{${g.winner}} WIN`}`,'sys');g.ver++;
 }
 
 
