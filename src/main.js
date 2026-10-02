@@ -2,6 +2,7 @@
 import{RULES,SUITCH,suitOf,rankLabel,lineCells,linesOfCell,lineName,cellName,B3,eval5,handName,newGame,actor,raiseRange,bettingLegal,doPlace,doBet}from'./engine.js';
 import{cpuMove}from'./cpu.js';
 import{logText}from'./view.js';
+import{startGuide,stopGuide}from'./guide.js';
 import*as realNet from'./net.js';
 let net=realNet; // replaced by src/fakeNet.js on http://localhost:5173/?fake (development only)
 
@@ -468,7 +469,8 @@ $('#themeToggle').addEventListener('click',()=>{
   r.dataset.theme=next;try{localStorage.setItem('gp-theme',next)}catch(e){}
   const t=$('#themeToggle');if(t.animate&&!REDUCE)t.animate([{transform:'rotate(0deg)'},{transform:'rotate(180deg)'}],{duration:500,easing:'cubic-bezier(.2,.8,.2,1)'});
 });
-$('#rulesBtn').addEventListener('click',()=>openDlg('#rulesDlg'));
+$('#rulesBtn').addEventListener('click',()=>{openDlg('#rulesDlg');startGuide($('#guide'))});
+$('#rulesDlg').addEventListener('close',stopGuide);
 $('#menuBtn').addEventListener('click',onMenuBtn);
 document.addEventListener('keydown',e=>{
   if(!G||MODE===null||ui.busy||document.querySelector('dialog[open]'))return;
