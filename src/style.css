@@ -635,3 +635,15 @@ body.compact .ptag .lg{display:none}
   #rulesDlg .dlg>h2{display:none}
   .guide{margin-top:10px}
 }
+
+/* freezeout: board number, ante, board-end window */
+.prog .bno{font-family:var(--f-num);font-weight:700;font-size:12px;letter-spacing:.04em;color:var(--muted)}
+.corner em{font-style:normal;font-family:var(--f-num);font-size:10px;font-weight:600;letter-spacing:.04em;color:var(--muted);white-space:nowrap}
+.duel em{display:block;font-style:normal;font-family:var(--f-num);font-weight:600;font-size:14px;color:var(--muted);margin-top:2px}
+.duel em.up{color:var(--you-text)}.duel em.down{color:var(--cpu)}
+.dlg .sub b{color:var(--ink)}
+.results .brow .hd{color:var(--muted)}
+.results .bcap{list-style:none;margin:10px 0 2px;font-family:var(--f-num);font-size:11px;font-weight:600;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;border:0;background:none;padding:0}
+.results li.brow{grid-template-columns:4.6em 1fr auto;cursor:default}
+.results li.brow:hover{border-color:var(--hair)}
+.results li.bcap{display:block;cursor:default}

@@ -1,7 +1,7 @@
 // Rules engine: whole games with the CPU and with random legal actions keep every invariant.
 import{test}from'node:test';
 import assert from'node:assert/strict';
-import{newGame,actor,doBet,bettingLegal,raiseRange,eval5,bestHole,autoMove,forfeit}from'../src/engine.js';
+import{newGame,actor,doBet,bettingLegal,raiseRange,eval5,bestHole,autoMove,forfeit,endBoard,migrate}from'../src/engine.js';
 import{cpuMove}from'../src/cpu.js';
 
 const CFGS=[{stack:200,ante:5,minRaiseMode:'fixed'},{stack:200,ante:5,minRaiseMode:'last'},{stack:100,ante:5,minRaiseMode:'fixed'},{stack:100,ante:1,minRaiseMode:'last'},{stack:300,ante:10,minRaiseMode:'fixed'}];
@@ -24,16 +24,19 @@ function play(fuzz,i){
     if(g.phase==='place')assert.equal(g.pendingSd.length,0);
   }
   assert.ok(g.over,'game finishes');
-  if(g.bust!==undefined){
-    // ended early: the busted seat has 0 and loses; undecided lines hold only their antes
-    assert.equal(g.stacks[g.bust],0);assert.equal(g.winner,1-g.bust);
-    for(let L=0;L<10;L++)if(!g.done[L])assert.deepEqual(g.contrib[L],[cfg.ante,cfg.ante]);
+  // freezeout: a game only ends when a player is out
+  assert.ok(g.bust===0||g.bust===1||g.bust===null,'someone is out');
+  if(g.bust!==null)assert.equal(g.winner,1-g.bust);
+  if(g.bustReason==='stack'){
+    // stack 0 after the lines were decided; undecided lines hold only this board's antes
+    if(g.bust!==null)assert.equal(g.stacks[g.bust],0);
+    for(let L=0;L<10;L++)if(!g.done[L])assert.deepEqual(g.contrib[L],[g.ante,g.ante]);
   }else{
-    assert.ok(g.board.every(x=>x!==null),'board is full');
-    assert.ok(g.done.every(Boolean),'every line is resolved');
+    assert.equal(g.bustReason,'ante');assert.ok(g.stacks[g.bust]<10,'cannot post 1 on every line');
     assert.equal(g.stacks[0]+g.stacks[1],total);
-    assert.ok(g.stacks[0]>0&&g.stacks[1]>0,'a stack of 0 ends the game earlier');
   }
+  // boards: the ante doubles (or drops to what the short stack can post), stacks carry over
+  g.boards.forEach((b,i)=>{assert.equal(b.n,i+1);assert.ok(b.ante<=cfg.ante*2**i);if(i)assert.ok(b.ante<=Math.floor(Math.min(...g.boards[i-1].stacks)/10))});
   assert.ok(g.log.every(e=>!/\b(YOU|CPU)\b/.test(e.text)),'shared log text names seats only as {0}/{1}');
   return g;
 }
@@ -76,4 +79,22 @@ test('No Limit: bet up to all-in, capped at what the opponent can cover; limit p
   doBet(g,1,'fold');
   assert.equal(g.stacks[0],160,'uncalled 90 back + the matched pot 10');
   assert.equal(g.done[0].pot,10);assert.equal(g.done[0].ret,90);assert.deepEqual(g.done[0].contrib,[5,5]);
+});
+
+test('freezeout: a full board carries the stacks over, doubles the ante and swaps the first player',()=>{
+  const g=newGame({first:'you'});assert.equal(g.boardNo,1);assert.equal(g.ante,5);assert.deepEqual(g.stacks,[150,150]);
+  g.stacks=[230,120];endBoard(g); // as if board 1 ended 280 / 120 (antes 50 each already posted on board 1)
+  assert.equal(g.boardNo,2);assert.equal(g.ante,10);assert.equal(g.first,1);assert.equal(g.turn,1);
+  assert.deepEqual(g.stacks,[130,20]);assert.ok(g.contrib.every(c=>c[0]===10&&c[1]===10));
+  assert.equal(g.popups.at(-1).type,'board');assert.deepEqual(g.popups.at(-1).next,{n:2,ante:10,first:1});
+  assert.ok(g.board.every(x=>x===null));assert.deepEqual(g.hands.map(h=>h.length),[4,4]);assert.equal(g.minRaise,10);
+  // board 3 would be ante 20, but the short stack has 115 → 11 per line
+  g.stacks=[275,115];endBoard(g);assert.equal(g.ante,11);assert.deepEqual(g.stacks,[165,5]);
+  // fewer than 10 chips: the short stack cannot post 1 on every line and loses
+  g.stacks=[391,9];endBoard(g);assert.equal(g.over,true);assert.equal(g.winner,0);assert.equal(g.bust,1);assert.equal(g.bustReason,'ante');
+});
+
+test('a game saved before the freezeout rules continues as board 1',()=>{
+  const g=newGame({first:'you'});for(const k of['boardNo','boards','ante','minRaise','boardStart'])delete g[k];g.cfg.minRaise=5;
+  migrate(g);assert.equal(g.boardNo,1);assert.equal(g.ante,5);assert.equal(g.minRaise,5);assert.deepEqual(g.boardStart,[200,200]);
 });

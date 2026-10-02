@@ -20,15 +20,15 @@ const ANTE10=Array(10).fill(10);
 const END_POT=[10,70,30,30,10,10,50,10,40,10],END_W=[1,0,0,1,0,1,0,1,1,0];
 
 const STEPS=[
-  {t:'盤面と10のpot',p:'5×5の盤面で、行1〜5と列a〜eの10本のlineがそれぞれ別のpot。開始時に両者が全lineへante 5を出すので、どのpotも10から始まる。',n:'マスは列＋行で a1〜e5 と呼ぶ。',run:stepBoard},
+  {t:'盤面と10のpot',p:'5×5の盤面で、行1〜5と列a〜eの10本のlineがそれぞれ別のpot。1盤面目は両者が全lineへante 5を出すので、どのpotも10から始まる。',n:'マスは列＋行で a1〜e5 と呼ぶ。',run:stepBoard},
   {t:'置いて、引く',p:'自分の手番では、hand 4枚から1枚を空きマスに置き、すぐ1枚引く。handは常に4枚。',n:'置いたカードは、そのマスを通る行と列の2本のlineに入る。',run:stepPlace},
   {t:'伏せて置く',p:'置いたカードは、そのlineが完成するまで相手に見えない。相手のカードも裏向きのまま。',n:'カード右上の印：青は自分、オレンジは相手が置いたカード。',run:stepHidden},
   {t:'5枚でLine完成',p:'lineの5マスが埋まると完成。伏せていたカードがすべて表になり、board 5枚がそろう。',run:stepComplete},
   {t:'Betting',p:'完成したlineで1ラウンドだけbetting（No Limit：all-inまで）。完成させた側から先にaction。',n:'受けた側はcall／raise／fold。foldすると、handを見せずに相手がpotを取る。',run:stepBet},
   {t:'Showdown',p:'handから必ず2枚、boardから必ず3枚を使ったベスト5で比べ、強い方がpotを取る。同じ強さならsplit。',run:stepShowdown},
   {t:'Redeal',p:'lineが決着する（showdownかfold）たびに、両者のhandを山に戻し、4枚ずつ配り直す。',run:stepRedeal},
-  {t:'終局',p:'25マスがすべて埋まったら終局。stackの多い方が勝ち（同じならdraw）。',n:'2本同時に完成したら行→列の順にbetting、両方終わってから同じ順でshowdown。',run:stepEnd},
-  {t:'Stack 0で終局',p:'途中でstackが0になったら、そのlineのshowdownが終わった時点で終局。0になった側の負け。',n:'all-inでも、そのlineに勝てばstackが戻るので続く。未完成のlineのanteは精算しない。',run:stepBust},
+  {t:'次の盤面へ',p:'25マス埋まったら、stackを持ち越して次の盤面へ。anteは盤面ごとに2倍（5→10→20…）。',n:'先手・後手は盤面ごとに交代。2本同時に完成したら行→列の順にbetting。',run:stepEnd},
+  {t:'Stack 0で終局',p:'stackが0になったら、そのlineのshowdownが終わった時点で終局。0になった側の負け。',n:'all-inでも、そのlineに勝てばstackが戻るので続く。',run:stepBust},
 ];
 
 let ui=null,cur=0,tok=0,anims=[];
@@ -263,10 +263,23 @@ async function stepEnd(x){
   hl([9]);await x.wait(1100);await potTo(x,9,END_POT[9],END_W[9]);
   hl([]);await setStack(x,0,235);
   await x.wait(500);
-  strip(`<span class="g-act"><span class="g-hn">GAME OVER</span><span class="g-w0">YOU</span><b>235</b><span class="g-dash">–</span><b>165</b><span class="g-w1">OPP</span></span>`);
+  strip(`<span class="g-line"><b>BOARD 1</b>終了 · stackを持ち越し</span>`);
   await x.anim(ui.strip.firstElementChild,[{opacity:0},{opacity:1}],{duration:260});
-  await x.wait(2600);
+  await x.wait(1100);
+  // the next board: clear the cards, post the doubled antes (10 a line), deal again; OPP starts this time
+  await Promise.all([...ui.cells.map(c=>c.firstElementChild).filter(Boolean),...ui.hands[0].children,...ui.hands[1].children].map((el,i)=>x.anim(el,[{opacity:1,transform:'none'},{opacity:0,transform:'scale(.85)'}],{duration:380,delay:(i%10)*25,easing:'ease-in',fill:'forwards'})));
+  for(let i=0;i<25;i++)setCell(i,null);
+  for(let L=0;L<10;L++)setPot(L,null);
+  setHand(0,[]);setHand(1,[]);
+  strip(`<span class="g-line"><b>BOARD 2</b>ante 10 · 先手 OPP</span>`);
+  await x.anim(ui.strip.firstElementChild,[{opacity:0},{opacity:1}],{duration:260});
+  stack(0,135);stack(1,65);pulse(x,ui.stks[0]);pulse(x,ui.stks[1]);
+  for(let L=0;L<10;L++){setPot(L,20);pulse(x,ui.pods[L].pod);await x.wait(60)}
+  setHand(0,B2_0);setHand(1,B2_1);
+  await Promise.all([...ui.hands[0].children,...ui.hands[1].children].map((el,i)=>cardIn(x,el,(i%4)*90+(i>3?40:0))));
+  await x.wait(2400);
 }
+const B2_0=ks(['Q♠','8♥','5♣','K♦']),B2_1=ks(['3♥','9♠','J♦','6♣']);
 
 // a mid-game stack of 0: OPP (10 left) calls all-in on Line 3, loses the showdown, and the game ends there
 const COL_B=lineCells(6),COL_D=lineCells(8);

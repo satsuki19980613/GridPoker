@@ -39,13 +39,19 @@ try{
   let v=[await rpc(U[0],'select public.game_poll($1,-1)',[game]),await rpc(U[1],'select public.game_poll($1,-1)',[game])].map(x=>x.view);
   ok(v[0].hands[1].every(c=>c===null)&&v[1].hands[0].every(c=>c===null)&&!v[0].deck,'views hide the other hand and the deck');
   let steps=0,stale=false;
-  while(!v[0].over&&steps++<400){
+  while(!v[0].over&&steps++<1500){
     const seat=actor(v[0]),g=structuredClone(v[seat]);
     // pick a move with the CPU on the seat's own view (opponent cards are unknown there)
     const before={place:g.phase==='place'};const snap=JSON.stringify(g.board);
     let move;
-    if(g.phase==='place'){const h0=[...g.hands[seat]];cpuMove(fill(g),seat);const cell=g.board.findIndex((b,i)=>b&&JSON.parse(snap)[i]===null);move={type:'place',card:g.board[cell].card,cell}}
-    else{const L=g.betting.line,h=g.hist[L].length;cpuMove(fill(g),seat);const last=g.hist[L][h];move={type:'bet',act:{'ベット':'raise','レイズ':'raise','コール':'call','チェック':'check','フォールド':'fold'}[last.a],to:last.to}}
+    if(g.phase==='place'){const h0=[...g.hands[seat]],empty=g.board.map((b,i)=>b?-1:i).filter(i=>i>=0);
+      // the last cell ends the board (the clone moves on to the next one), so it is played directly
+      if(empty.length===1)move={type:'place',card:h0[0],cell:empty[0]};
+      else{cpuMove(fill(g),seat);const cell=g.board.findIndex((b,i)=>b&&JSON.parse(snap)[i]===null);move={type:'place',card:g.board[cell].card,cell}}}
+    else{
+      // read the CPU's action from the log (the line history is reset when the action ends the board)
+      const n0=g.log.length;cpuMove(fill(g),seat);const e=g.log.slice(n0).find(x=>x.who===seat),m=/\} (check|call|fold|bet|raise to)(?: (\d+))?/.exec(e.text);
+      move={type:'bet',act:{check:'check',call:'call',fold:'fold',bet:'raise','raise to':'raise'}[m[1]],to:m[1]==='bet'||m[1]==='raise to'?+m[2]:undefined}}
     if(steps===3){try{await db.play(U[seat],game,{op:'act',ver:v[0].meta.ver-1,move})}catch(e){stale=e.code==='stale'}}
     const r=await db.play(U[seat],game,{op:'act',ver:v[0].meta.ver,move});
     const o=await rpc(U[1-seat],'select public.game_poll($1,$2)',[game,v[0].meta.ver]);

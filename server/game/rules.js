@@ -1,5 +1,5 @@
 // VS Player game rules on top of the engine: settings, turn clock, ratings, applying a request to a stored game.
-import{RULES,newGame,actor,doPlace,doBet,autoMove,forfeit}from'../../src/engine.js';
+import{RULES,newGame,actor,doPlace,doBet,autoMove,forfeit,migrate}from'../../src/engine.js';
 import{viewFor}from'../../src/view.js';
 
 export const PVP_CFG=RULES; // same fixed settings as VS CPU
@@ -21,7 +21,7 @@ export class MoveError extends Error{constructor(code){super(code);this.code=cod
 
 // apply one request to the stored game; returns the new state and strikes. Throws MoveError for anything illegal.
 export function applyRequest(game,seat,req,now){
-  const g=structuredClone(game.state),strikes=[...game.strikes];
+  const g=migrate(structuredClone(game.state)),strikes=[...game.strikes];
   if(g.over)throw new MoveError('game_over');
   if(req.op==='resign'){forfeit(g,seat,'resign');return{state:g,strikes}}
   if(req.op==='timeout'){

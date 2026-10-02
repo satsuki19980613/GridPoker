@@ -71,18 +71,20 @@
     <div class="guide" id="guide"></div>
     <h3 class="r-h">設定<span>全ゲーム共通・固定</span></h3>
     <dl class="spec">
-      <dt>Stack</dt><dd>200</dd>
-      <dt>Ante</dt><dd>5 × 10 line（開始時に計50。各potは10から）</dd>
+      <dt>形式</dt><dd>フリーズアウト。どちらかが負けるまで盤面（25マス）を繰り返す</dd>
+      <dt>Stack</dt><dd>200から。盤面をまたいで持ち越し</dd>
+      <dt>Ante</dt><dd>全10 lineに各5から。盤面ごとに2倍（5→10→20→40…）</dd>
       <dt>Deck</dt><dd>52枚・1組</dd>
       <dt>Hand</dt><dd>4枚（1枚置くたびに1枚draw）</dd>
       <dt>Bet上限</dt><dd>No Limit。all-inまで可（相手がcoverできる額まで）。foldされたら、callされなかった分は戻る</dd>
-      <dt>Min raise</dt><dd>NL：そのlineでこれまで最大のraise幅以上（最低5）</dd>
-      <dt>先手／後手</dt><dd>ランダム（先手13枚・後手12枚）</dd>
+      <dt>Min raise</dt><dd>NL：そのlineでこれまで最大のraise幅以上（最低はante額）</dd>
+      <dt>先手／後手</dt><dd>最初はランダム。盤面ごとに交代（先手13枚・後手12枚）</dd>
     </dl>
     <h3 class="r-h">勝敗</h3>
     <dl class="spec">
-      <dt>25マス</dt><dd>全マスが埋まったら終局。stackの多い方の勝ち（同じならDraw）</dd>
-      <dt>Stack 0</dt><dd>途中でstackが0になったら、そのlineのshowdownが終わった時点で終局し、0になった側の負け。all-inでも、そのlineに勝てば続く。未完成のlineのanteは精算しない</dd>
+      <dt>Stack 0</dt><dd>stackが0になったら、そのlineのshowdownが終わった時点で終局し、0になった側の負け。all-inでも、そのlineに勝てば続く。未完成のlineのanteは精算しない</dd>
+      <dt>25マス</dt><dd>盤面の終わり。stackを持ち越して次の盤面へ（anteは2倍）</dd>
+      <dt>Ante不足</dt><dd>短い方のstackがante×10に足りないときは、払える額（stack÷10）に下げる。1も払えなければ負け</dd>
     </dl>
     <h3 class="r-h">VS Player</h3>
     <dl class="spec">

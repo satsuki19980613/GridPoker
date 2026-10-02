@@ -69,7 +69,7 @@ function lineState(L){
   return{who:null,tag:'to act',short:'to act',next};
 }
 function histHTML(L){
-  const h=G.hist[L],a=G.cfg.ante;
+  const h=G.hist[L],a=G.ante??G.cfg.ante;
   return`<ol class="hist"><li class="sys"><b>ANTE</b><span>${a} / ${a}</span></li>${h.map(x=>`<li class="${x.p===ME?'y':'c'}"><b>${WS(x.p)}</b><span>${AV[x.a]||x.a}${x.a==='チェック'||x.a==='フォールド'?'':' '+x.to}</span></li>`).join('')}</ol>`;
 }
 function lineBox(L){
@@ -94,8 +94,9 @@ function hideTip(){const t=$('#tip');if(t){t.hidden=true;ui.tipLine=null}}
 function render(){
   if(!G)return;
   const placed=G.board.filter(x=>x).length;
-  $('#roundLbl').innerHTML=`<span class="bar"><i style="transform:scaleX(${placed/25})"></i></span><b>${placed}</b><span>/ 25</span>`;
-  $('#roundLbl').setAttribute('aria-label',`配置済み ${placed} / 25マス`);
+  const bn=G.boardNo||1;
+  $('#roundLbl').innerHTML=`<span class="bno">B${bn}</span><span class="bar"><i style="transform:scaleX(${placed/25})"></i></span><b>${placed}</b><span>/ 25</span>`;
+  $('#roundLbl').setAttribute('aria-label',`盤面${bn}・ante ${G.ante??G.cfg.ante}・配置済み ${placed} / 25マス`);
   renderSeats();renderBoard();renderHand();renderDock();fitTable();
   const p=ui.plate;clearTimeout(ui.plateTimer);if(p&&plateOn()){const left=PLATE_MS-(Date.now()-p.t);if(left>0)ui.plateTimer=setTimeout(render,left+30)}
 }
@@ -129,7 +130,7 @@ function buildBoard(){
   const pw=L=>`<div class="podwrap" data-pl="${L}"><button class="pod" data-line="${L}"><span class="face"></span></button><span class="tagslot"></span></div>`;
   const lab=(L,t)=>`<div class="lab" data-ll="${L}" aria-hidden="true">${t}</div>`;
   let h='';for(let c=5;c<10;c++)h+=pw(c);
-  h+='<div></div><div class="corner"><span>POT</span><b></b></div>';
+  h+='<div></div><div class="corner"><span>POT</span><b></b><em></em></div>';
   for(let c=0;c<5;c++)h+=lab(5+c,'abcde'[c]);
   h+='<div></div><div></div>';
   for(let r=0;r<5;r++){for(let col=0;col<5;col++)h+=`<button class="cell" data-cell="${r*5+col}"></button>`;h+=lab(r,r+1)+pw(r)}
@@ -162,7 +163,8 @@ function renderBoard(){
     setCls(bd.labs[L],`lab${hl.has(L)?' hl':''}${L===hotL?' hot':''}`);
   }
   const live=G.contrib.reduce((s,c,L)=>s+(G.done[L]?0:c[0]+c[1]),0),cb=bd.corner.querySelector('b');
-  if(cb.textContent!==String(live))cb.textContent=live;setAttr(bd.corner,'aria-label',`Total pot ${live}`);
+  if(cb.textContent!==String(live))cb.textContent=live;setAttr(bd.corner,'aria-label',`Total pot ${live} · ante ${G.ante??G.cfg.ante}`);
+  const ae=bd.corner.querySelector('em'),at=`ante ${G.ante??G.cfg.ante}`;if(ae.textContent!==at)ae.textContent=at;
   for(let cell=0;cell<25;cell++){
     const el=bd.cells[cell],b=G.board[cell];
     let cls='cell';if(hlCells.has(cell))cls+=' hl';if(hotCells.has(cell))cls+=' hot';if(bc&&bc.cells.includes(cell))cls+=bc.tri.includes(cell)?' best':' nobest';
@@ -294,6 +296,11 @@ function openRaise(){
 }
 function popupHTML(pp){
   const next=G.popups.length-ui.popIdx>1?'次へ':'続ける';
+  if(pp.type==='board'){
+    const box=p=>`<div class="${p===ME?'y':'c'}"><span>${p===ME?'YOU':esc(opName())}</span><b>${pp.stacks[p]}</b><em class="${pp.net[p]>0?'up':pp.net[p]<0?'down':''}">${pp.net[p]>0?'+':''}${pp.net[p]}</em></div>`;
+    return head(`BOARD ${pp.n} · END`,`BOARD ${pp.next.n}`)+`<div class="duel">${box(ME)}${box(OP)}</div>`+
+      `<p class="sub">ante ${pp.ante} → <b>${pp.next.ante}</b> · 先手 ${WS(pp.next.first)}</p><div class="btns"><button class="btn primary" data-act="ack" type="button">${next}</button></div>`;
+  }
   if(pp.type==='fold')
     return head(`${lineName(pp.L)} · fold`,`${WS(pp.winner)} wins ${pp.pot}`,pp.winner===ME?'y':'c')+
       `<p class="sub">${WS(pp.folder)} fold · no show${pp.ret?` · uncalled ${pp.ret} returned`:''}</p><div class="btns"><button class="btn primary" data-act="ack" type="button">${next}</button></div>`;
@@ -305,8 +312,11 @@ function popupHTML(pp){
     <div class="btns"><button class="btn primary" data-act="ack" type="button">${next}</button></div>`;
 }
 function resultsHTML(){
-  const rows=G.done.map((d,L)=>d).filter(Boolean);
-  return`<ol class="results">${rows.map(d=>{
+  const rows=G.done.map((d,L)=>d).filter(Boolean),boards=G.boards||[];
+  // earlier boards as one row each, then the lines of the last board
+  const past=boards.map(b=>{const v=b.net[ME];return`<li class="brow"><span class="ln">Board ${b.n}</span><span class="hd">ante ${b.ante} · YOU ${b.stacks[ME]} / ${esc(opTag())} ${b.stacks[OP]}</span><span class="amt ${v>0?'up':v<0?'down':'even'}">${v>0?'+':v<0?'−':'±'}${Math.abs(v)}</span></li>`}).join('');
+  const cap=boards.length?`<li class="bcap">Board ${G.boardNo} · ante ${G.ante}</li>`:'';
+  return`<ol class="results">${past}${cap}${rows.map(d=>{
     const mine=d.contrib[ME];let amt,cls;
     if(d.winner===null){amt='±0';cls='even'}else if(d.winner===ME){amt='+'+(d.pot-mine);cls='up'}else{amt='−'+mine;cls='down'}
     const hd=d.folded?`${WS(d.folder)} fold`:`<span class="y${d.winner===OP?' lose':''}">${d.names[ME]}</span> vs <span class="c${d.winner===ME?' lose':''}">${d.names[OP]}</span>`;
@@ -314,7 +324,7 @@ function resultsHTML(){
 }
 function openOver(){
   const w=G.winner,f=G.forfeit,res=MODE==='pvp'&&G.meta?G.meta.result:null;
-  const why=f?`<p class="sub">${WS(f.p)} ${f.reason==='resign'?'resign':'time-out'}</p>`:G.bust!=null?`<p class="sub">${WS(G.bust)} stack 0</p>`:'';
+  const why=f?`<p class="sub">${WS(f.p)} ${f.reason==='resign'?'resign':'time-out'}</p>`:G.bust!=null?`<p class="sub">${WS(G.bust)} ${G.bustReason==='ante'?'cannot post the ante':'stack 0'} · Board ${G.boardNo||1}</p>`:'';
   const rd=res?`<div class="rdelta">Rating<b>${res.after[ME]}</b><span class="${res.delta[ME]>0?'up':res.delta[ME]<0?'down':''}">${res.delta[ME]>0?'+':''}${res.delta[ME]}</span></div>`:'';
   $('#overBody').innerHTML=head('GAME OVER',w===null?'DRAW':WS(w)+' WIN',w===null?'e':w===ME?'y':'c')+why+
     `<div class="duel"><div class="y"><span>YOU</span><b>${G.stacks[ME]}</b></div><div class="c"><span>${esc(opName())}</span><b>${G.stacks[OP]}</b></div></div>${rd}${resultsHTML()}
@@ -444,7 +454,7 @@ document.addEventListener('click',e=>{
   if(e.target.closest('#menu'))return;
   const q=e.target.closest('[data-q]');if(q){ui.raiseTo=+q.dataset.q;syncRaise();return}
   const cl=e.target.closest('[data-close]');if(cl){cl.closest('dialog').close();return}
-  const li=e.target.closest('.results li');if(li){ui.showLine=+li.dataset.line;$('#overDlg').close();render();return}
+  const li=e.target.closest('.results li[data-line]');if(li){ui.showLine=+li.dataset.line;$('#overDlg').close();render();return}
   const b=e.target.closest('[data-act]');if(!b||!G)return;const act=b.dataset.act;
   try{
     if(act==='new'){$('#overDlg').close();return startGame()}

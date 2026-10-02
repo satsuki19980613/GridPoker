@@ -43,23 +43,45 @@ function handName(v){
 const rnd=globalThis.crypto&&globalThis.crypto.getRandomValues?()=>globalThis.crypto.getRandomValues(new Uint32Array(1))[0]/4294967296:Math.random;
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 
-// Fixed game settings for every game (VS CPU and VS Player; 2026-10-02 さつき): stack 200, ante 5 on each of the 10 lines,
-// No Limit (all-in up to what the opponent can cover; limit 'pot' = the former Pot Limit, kept for comparisons),
-// NL min raise (at least the ante, or the largest raise so far on that line), first player at random.
+// Fixed game settings for every game (VS CPU and VS Player; 2026-10-02 さつき): freezeout from stack 200; ante 5 on each of
+// the 10 lines on the first board, doubled every board; No Limit (all-in up to what the opponent can cover; limit 'pot' =
+// the former Pot Limit, kept for comparisons); NL min raise (at least the ante, or the largest raise so far on that line);
+// the first player is random, then alternates every board.
 const RULES=Object.freeze({stack:200,ante:5,limit:'none',minRaiseMode:'last',first:'random'});
 function newGame(cfg){
   const g={cfg:Object.assign({},RULES,cfg),log:[],popups:[],ver:0,over:false,winner:null};
-  g.cfg.minRaise=g.cfg.ante; // ミニマムレイズ幅の下限＝アンティ
+  g.stacks=[g.cfg.stack,g.cfg.stack];g.boardNo=0;g.boards=[];g.handGen=0;
+  const first=g.cfg.first==='you'?0:g.cfg.first==='cpu'?1:(rnd()<.5?0:1);
+  addLog(g,`NEW GAME · stack ${g.cfg.stack} · freezeout`,'sys');
+  startBoard(g,first);
+  return g;
+}
+// the ante of board n: the first ante doubled every board, lowered to what the short stack can post on all 10 lines
+const anteFor=(g,n)=>Math.min(g.cfg.ante*2**(n-1),Math.floor(Math.min(...g.stacks)/10));
+function startBoard(g,first){
+  const n=g.boardNo+1,a=anteFor(g,n);
+  g.boardNo=n;g.ante=a;g.minRaise=a; // ミニマムレイズ幅の下限＝その盤面のアンティ
+  g.boardStart=[...g.stacks];
   g.deck=shuffle([...Array(52).keys()]);
   g.board=Array(25).fill(null);
   g.hands=[[g.deck.pop(),g.deck.pop(),g.deck.pop(),g.deck.pop()],[g.deck.pop(),g.deck.pop(),g.deck.pop(),g.deck.pop()]];
-  const a=g.cfg.ante;g.contrib=Array.from({length:10},()=>[a,a]);
-  g.stacks=[g.cfg.stack-10*a,g.cfg.stack-10*a];
+  g.contrib=Array.from({length:10},()=>[a,a]);
+  g.stacks=g.stacks.map(s=>s-10*a);
   g.done=Array(10).fill(null);
-  g.first=g.cfg.first==='you'?0:g.cfg.first==='cpu'?1:(rnd()<.5?0:1);
-  g.lastDraw=[null,null];g.turn=g.first;g.phase='place';g.queue=[];g.pendingSd=[];g.betting=null;g.lastCell=null;g.handGen=0;g.lastInc=Array(10).fill(0);g.hist=Array.from({length:10},()=>[]);
-  addLog(g,`NEW GAME · stack ${g.cfg.stack} · ante ${a}×10 · 先手 {${g.first}}`,'sys',{0:` · YOU ${g.hands[0].map(cardStr).join('')}`,1:` · YOU ${g.hands[1].map(cardStr).join('')}`});
-  return g;
+  g.first=first;g.lastDraw=[null,null];g.turn=first;g.phase='place';g.queue=[];g.pendingSd=[];g.betting=null;g.lastCell=null;g.handGen++;g.lastInc=Array(10).fill(0);g.hist=Array.from({length:10},()=>[]);
+  addLog(g,`BOARD ${n} · ante ${a}×10 · 先手 {${first}}`,'sys',{0:` · YOU ${g.hands[0].map(cardStr).join('')}`,1:` · YOU ${g.hands[1].map(cardStr).join('')}`});
+}
+// games saved before the freezeout rules (2026-10-02) continue as their board 1
+function migrate(g){if(g.boardNo===undefined){g.boardNo=1;g.boards=[];g.ante=g.cfg.ante;g.minRaise=g.cfg.minRaise??g.cfg.ante;g.boardStart=[g.cfg.stack,g.cfg.stack]}return g}
+// all 25 cells are filled (every line decided): stacks carry over to the next board, the ante doubles, the other player starts
+function endBoard(g){
+  const n=g.boardNo,net=[0,1].map(p=>g.stacks[p]-g.boardStart[p]);
+  g.boards.push({n,ante:g.ante,net,stacks:[...g.stacks]});
+  const next=anteFor(g,n+1);
+  if(next<1)return finish(g,g.stacks[0]<g.stacks[1]?0:1,'ante');
+  g.popups.push({type:'board',n,ante:g.ante,net,stacks:[...g.stacks],next:{n:n+1,ante:next,first:1-g.first}});
+  addLog(g,`BOARD ${n} END · {0} ${g.stacks[0]} / {1} ${g.stacks[1]}`,'sys');
+  startBoard(g,1-g.first);g.ver++;
 }
 function addLog(g,text,who,priv){g.log.push(priv?{text,who,priv}:{text,who})}
 function drawFor(g,p){const c=g.deck.pop();g.hands[p].push(c);g.lastDraw[p]=c}
@@ -75,7 +97,7 @@ function raiseRange(g,p,L){
   if(cap<=top)return null;
   const eff=opp+g.stacks[1-p]; // never more than the opponent can match
   maxTo=Math.min(maxTo,cap,eff);if(maxTo<=top)return null;
-  const inc=g.cfg.minRaiseMode==='last'?Math.max(g.cfg.minRaise,g.lastInc[L]):g.cfg.minRaise;
+  const inc=g.cfg.minRaiseMode==='last'?Math.max(g.minRaise,g.lastInc[L]):g.minRaise;
   let minTo=top+inc;if(maxTo<minTo)minTo=maxTo;
   return[minTo,maxTo];
 }
@@ -164,7 +186,8 @@ function afterCompletions(g){
   for(const L of pl)showdownLine(g,L); // 横→縦の順（完成順）
   // stack 0 after the lines are decided: the game ends here and that player loses (2026-10-02 さつき)
   const bust=[0,1].filter(p=>g.stacks[p]===0);
-  if(bust.length)return finish(g,bust.length===1?bust[0]:null);
+  if(bust.length)return finish(g,bust.length===1?bust[0]:null,'stack');
+  if(g.board.every(x=>x!==null))return endBoard(g); // the next board deals new hands
   // 完成した全ラインはフォールドかショーダウンで決着済み。決着したら必ず配り直す
   g.deck.push(...g.hands[0],...g.hands[1]);shuffle(g.deck);
   g.hands=[[g.deck.pop(),g.deck.pop(),g.deck.pop(),g.deck.pop()],[g.deck.pop(),g.deck.pop(),g.deck.pop(),g.deck.pop()]];
@@ -172,15 +195,15 @@ function afterCompletions(g){
   g.ver++;endTurn(g);
 }
 function endTurn(g){
-  if(g.board.every(x=>x!==null))return finish(g);
+  if(g.board.every(x=>x!==null))return endBoard(g);
   g.turn=1-g.turn;g.phase='place';g.ver++;
 }
-// bust: the seat whose stack reached 0 (undefined when the board is full). Undecided lines keep their antes.
-function finish(g,bust){
+// bust: the seat that lost (null: both at 0 at once, a draw). reason 'stack' (stack 0 after the lines were decided;
+// undecided lines keep their antes) or 'ante' (cannot post an ante of 1 on every line for the next board)
+function finish(g,bust,reason){
   g.over=true;g.phase='over';g.betting=null;const s=g.stacks;
-  if(bust!==undefined){g.bust=bust;g.winner=bust===null?null:1-bust}
-  else g.winner=s[0]===s[1]?null:(s[0]>s[1]?0:1);
-  addLog(g,`GAME OVER${bust!=null?` · {${bust}} stack 0`:''} · {0} ${s[0]} / {1} ${s[1]} · ${g.winner===null?'DRAW':`{${g.winner}} WIN`}`,'sys');g.ver++;
+  g.bust=bust;g.bustReason=reason;g.winner=bust===null?null:1-bust;
+  addLog(g,`GAME OVER${bust!=null?` · {${bust}} ${reason==='ante'?'cannot post the ante':'stack 0'}`:''} · {0} ${s[0]} / {1} ${s[1]} · ${g.winner===null?'DRAW':`{${g.winner}} WIN`}`,'sys');g.ver++;
 }
 
 
@@ -201,4 +224,4 @@ function forfeit(g,p,reason){
   addLog(g,`{${p}} ${reason==='resign'?'resign':'time-out'} · {${1-p}} WIN`,'sys');g.ver++;
 }
 
-export{RULES,RANKCH,SUITCH,rankOf,suitOf,rankLabel,lineCells,linesOfCell,lineName,cellName,HAND_JA,cardStr,eval5,T5,B3,bestHole,catOf,handName,rnd,shuffle,newGame,addLog,drawFor,rec,actor,lineFull,visibleTo,raiseRange,put,callLine,doPlace,startCompletion,autoBet,bettingLegal,doBet,doBetRaw,pendSd,revealLine,showdownLine,nextCompletion,afterCompletions,endTurn,finish,autoMove,forfeit};
+export{RULES,RANKCH,SUITCH,rankOf,suitOf,rankLabel,lineCells,linesOfCell,lineName,cellName,HAND_JA,cardStr,eval5,T5,B3,bestHole,catOf,handName,rnd,shuffle,newGame,startBoard,endBoard,anteFor,migrate,addLog,drawFor,rec,actor,lineFull,visibleTo,raiseRange,put,callLine,doPlace,startCompletion,autoBet,bettingLegal,doBet,doBetRaw,pendSd,revealLine,showdownLine,nextCompletion,afterCompletions,endTurn,finish,autoMove,forfeit};
