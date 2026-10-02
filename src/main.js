@@ -312,7 +312,7 @@ function popupHTML(pp){
     <div class="btns"><button class="btn primary" data-act="ack" type="button">${next}</button></div>`;
 }
 function resultsHTML(){
-  const rows=G.done.map((d,L)=>d).filter(Boolean),boards=G.boards||[];
+  const rows=G.done.map((d,L)=>d).filter(d=>d&&d.pot>0),boards=G.boards||[];
   // earlier boards as one row each, then the lines of the last board
   const past=boards.map(b=>{const v=b.net[ME];return`<li class="brow"><span class="ln">Board ${b.n}</span><span class="hd">ante ${b.ante} · YOU ${b.stacks[ME]} / ${esc(opTag())} ${b.stacks[OP]}</span><span class="amt ${v>0?'up':v<0?'down':'even'}">${v>0?'+':v<0?'−':'±'}${Math.abs(v)}</span></li>`}).join('');
   const cap=boards.length?`<li class="bcap">Board ${G.boardNo} · ante ${G.ante}</li>`:'';
@@ -324,7 +324,7 @@ function resultsHTML(){
 }
 function openOver(){
   const w=G.winner,f=G.forfeit,res=MODE==='pvp'&&G.meta?G.meta.result:null;
-  const why=f?`<p class="sub">${WS(f.p)} ${f.reason==='resign'?'resign':'time-out'}</p>`:G.bust!=null?`<p class="sub">${WS(G.bust)} ${G.bustReason==='ante'?'cannot post the ante':'stack 0'} · Board ${G.boardNo||1}</p>`:'';
+  const why=f?`<p class="sub">${WS(f.p)} ${f.reason==='resign'?'resign':'time-out'}</p>`:G.bust!=null?`<p class="sub">${WS(G.bust)} ${G.bustReason==='ante'?'cannot post the ante':'out of chips'} · Board ${G.boardNo||1}</p>`:'';
   const rd=res?`<div class="rdelta">Rating<b>${res.after[ME]}</b><span class="${res.delta[ME]>0?'up':res.delta[ME]<0?'down':''}">${res.delta[ME]>0?'+':''}${res.delta[ME]}</span></div>`:'';
   $('#overBody').innerHTML=head('GAME OVER',w===null?'DRAW':WS(w)+' WIN',w===null?'e':w===ME?'y':'c')+why+
     `<div class="duel"><div class="y"><span>YOU</span><b>${G.stacks[ME]}</b></div><div class="c"><span>${esc(opName())}</span><b>${G.stacks[OP]}</b></div></div>${rd}${resultsHTML()}

@@ -27,16 +27,17 @@ function play(fuzz,i){
   // freezeout: a game only ends when a player is out
   assert.ok(g.bust===0||g.bust===1||g.bust===null,'someone is out');
   if(g.bust!==null)assert.equal(g.winner,1-g.bust);
-  if(g.bustReason==='stack'){
-    // stack 0 after the lines were decided; undecided lines hold only this board's antes
-    if(g.bust!==null)assert.equal(g.stacks[g.bust],0);
-    for(let L=0;L<10;L++)if(!g.done[L])assert.deepEqual(g.contrib[L],[g.ante,g.ante]);
+  // the loser has no chips anywhere (stack and undecided lines); every chip is accounted for
+  let left=g.stacks[0]+g.stacks[1];for(let L=0;L<10;L++)if(!g.done[L])left+=g.contrib[L][0]+g.contrib[L][1];
+  assert.equal(left,total);
+  if(g.bustReason==='chips'){
+    if(g.bust!==null){assert.equal(g.stacks[g.bust],0);for(let L=0;L<10;L++)if(!g.done[L])assert.equal(g.contrib[L][g.bust],0)}
   }else{
     assert.equal(g.bustReason,'ante');assert.ok(g.stacks[g.bust]<10,'cannot post 1 on every line');
     assert.equal(g.stacks[0]+g.stacks[1],total);
   }
-  // boards: the ante doubles (or drops to what the short stack can post), stacks carry over
-  g.boards.forEach((b,i)=>{assert.equal(b.n,i+1);assert.ok(b.ante<=cfg.ante*2**i);if(i)assert.ok(b.ante<=Math.floor(Math.min(...g.boards[i-1].stacks)/10))});
+  // boards: the ante doubles every board (a short stack goes all-in line by line instead of lowering it)
+  g.boards.forEach((b,i)=>{assert.equal(b.n,i+1);assert.equal(b.ante,cfg.ante*2**i)});
   assert.ok(g.log.every(e=>!/\b(YOU|CPU)\b/.test(e.text)),'shared log text names seats only as {0}/{1}');
   return g;
 }
@@ -88,10 +89,37 @@ test('freezeout: a full board carries the stacks over, doubles the ante and swap
   assert.deepEqual(g.stacks,[130,20]);assert.ok(g.contrib.every(c=>c[0]===10&&c[1]===10));
   assert.equal(g.popups.at(-1).type,'board');assert.deepEqual(g.popups.at(-1).next,{n:2,ante:10,first:1});
   assert.ok(g.board.every(x=>x===null));assert.deepEqual(g.hands.map(h=>h.length),[4,4]);assert.equal(g.minRaise,10);
-  // board 3 would be ante 20, but the short stack has 115 → 11 per line
-  g.stacks=[275,115];endBoard(g);assert.equal(g.ante,11);assert.deepEqual(g.stacks,[165,5]);
-  // fewer than 10 chips: the short stack cannot post 1 on every line and loses
-  g.stacks=[391,9];endBoard(g);assert.equal(g.over,true);assert.equal(g.winner,0);assert.equal(g.bust,1);assert.equal(g.bustReason,'ante');
+  // board 3, ante 20: the short stack (115) posts 20 on Line 1–5 and its last 15 on Line 6; Line 7–10 carry no pot
+  g.stacks=[275,115];endBoard(g);assert.equal(g.ante,20);assert.deepEqual(g.stacks,[160,0]);
+  assert.deepEqual(g.contrib.map(c=>c[0]),[20,20,20,20,20,15,0,0,0,0]);assert.ok(g.contrib.every(c=>c[0]===c[1]));
+  // out of chips when a board ends: that player loses
+  g.stacks=[400,0];endBoard(g);assert.equal(g.over,true);assert.equal(g.winner,0);assert.equal(g.bust,1);assert.equal(g.bustReason,'chips');
+});
+
+test('anteMode even (comparison): the ante drops to the short stack ÷ 10; under 10 chips loses',()=>{
+  const g=newGame({first:'you',anteMode:'even'});
+  g.stacks=[230,120];endBoard(g);g.stacks=[275,115];endBoard(g);assert.equal(g.ante,11);assert.deepEqual(g.stacks,[165,5]);
+  g.stacks=[391,9];endBoard(g);assert.equal(g.over,true);assert.equal(g.bust,1);assert.equal(g.bustReason,'ante');
+});
+
+test('stack 0 is all-in, not out: no betting on the line, the game goes on while antes remain in other lines',()=>{
+  const g=newGame({first:'you'});g.stacks=[290,0];
+  for(let i=0;i<5;i++)g.board[i]={card:g.deck.pop(),owner:i%2,rev:true};
+  g.phase='betting';g.queue=[0];g.pendingSd=[];g.betting={line:0,toAct:0,mode:'open',checks:0,raises:0};
+  assert.equal(bettingLegal(g).raise,null,'nothing to bet against an all-in player');
+  doBet(g,0,'check'); // the all-in player checks automatically; showdown
+  assert.ok(g.done[0],'line decided');assert.equal(g.over,false,'still in: antes on the other 9 lines');assert.equal(g.phase,'place');
+});
+
+test('no chips anywhere ends the game at once, even mid-board',()=>{
+  const g=newGame({first:'you'});g.stacks=[390,0];g.contrib=g.contrib.map((c,L)=>L===0?[5,5]:[0,0]); // all-in on Line 1 only
+  for(let i=0;i<5;i++)g.board[i]={card:g.deck.pop(),owner:i%2,rev:true};
+  g.hands[0]=[];g.hands[1]=[]; // fix the showdown: seat 0 holds the nuts against seat 1's junk
+  const k=c=>'23456789TJQKA'.indexOf(c[0])*4+'shdc'.indexOf(c[1]);
+  g.board.slice(0,5).forEach((b,i)=>{b.card=k(['Ah','Kh','Qh','2c','3d'][i])});g.hands=[['Jh','Th','4s','5s'].map(k),['7c','8d','9s','6c'].map(k)];
+  g.phase='betting';g.queue=[0];g.pendingSd=[];g.betting={line:0,toAct:0,mode:'open',checks:0,raises:0};
+  doBet(g,0,'check');
+  assert.equal(g.over,true);assert.equal(g.winner,0);assert.equal(g.bustReason,'chips');assert.ok(g.board.some(x=>x===null),'ended mid-board');
 });
 
 test('a game saved before the freezeout rules continues as board 1',()=>{

@@ -47,7 +47,7 @@ function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1)
 // the 10 lines on the first board, doubled every board; No Limit (all-in up to what the opponent can cover; limit 'pot' =
 // the former Pot Limit, kept for comparisons); NL min raise (at least the ante, or the largest raise so far on that line);
 // the first player is random, then alternates every board.
-const RULES=Object.freeze({stack:200,ante:5,limit:'none',minRaiseMode:'last',first:'random'});
+const RULES=Object.freeze({stack:200,ante:5,anteMode:'fill',limit:'none',minRaiseMode:'last',first:'random'});
 function newGame(cfg){
   const g={cfg:Object.assign({},RULES,cfg),log:[],popups:[],ver:0,over:false,winner:null};
   g.stacks=[g.cfg.stack,g.cfg.stack];g.boardNo=0;g.boards=[];g.handGen=0;
@@ -58,15 +58,21 @@ function newGame(cfg){
 }
 // the ante of board n: the first ante doubled every board, lowered to what the short stack can post on all 10 lines
 const anteFor=(g,n)=>Math.min(g.cfg.ante*2**(n-1),Math.floor(Math.min(...g.stacks)/10));
+// anteMode 'fill' (the rule, 2026-10-03 さつき): a short stack posts the full ante line by line from Line 1 as far as its chips
+// go (all-in, nothing kept back); the other player matches line by line, so lines beyond that start with no pot.
+// anteMode 'even' (comparison): the ante drops to the short stack ÷ 10 on every line, the remainder kept back
 function startBoard(g,first){
-  const n=g.boardNo+1,a=anteFor(g,n);
+  const n=g.boardNo+1,fill=g.cfg.anteMode==='fill',a=fill?g.cfg.ante*2**(n-1):anteFor(g,n);
   g.boardNo=n;g.ante=a;g.minRaise=a; // ミニマムレイズ幅の下限＝その盤面のアンティ
   g.boardStart=[...g.stacks];
   g.deck=shuffle([...Array(52).keys()]);
   g.board=Array(25).fill(null);
   g.hands=[[g.deck.pop(),g.deck.pop(),g.deck.pop(),g.deck.pop()],[g.deck.pop(),g.deck.pop(),g.deck.pop(),g.deck.pop()]];
-  g.contrib=Array.from({length:10},()=>[a,a]);
-  g.stacks=g.stacks.map(s=>s-10*a);
+  if(fill){
+    const per=g.stacks.map(s=>Array.from({length:10},()=>{const x=Math.min(a,s);s-=x;return x}));
+    g.contrib=per[0].map((x,L)=>{const m=Math.min(x,per[1][L]);return[m,m]});
+    const paid=g.contrib.reduce((t,c)=>t+c[0],0);g.stacks=g.stacks.map(v=>v-paid);
+  }else{g.contrib=Array.from({length:10},()=>[a,a]);g.stacks=g.stacks.map(v=>v-10*a)}
   g.done=Array(10).fill(null);
   g.first=first;g.lastDraw=[null,null];g.turn=first;g.phase='place';g.queue=[];g.pendingSd=[];g.betting=null;g.lastCell=null;g.handGen++;g.lastInc=Array(10).fill(0);g.hist=Array.from({length:10},()=>[]);
   addLog(g,`BOARD ${n} · ante ${a}×10 · 先手 {${first}}`,'sys',{0:` · YOU ${g.hands[0].map(cardStr).join('')}`,1:` · YOU ${g.hands[1].map(cardStr).join('')}`});
@@ -77,7 +83,10 @@ function migrate(g){if(g.boardNo===undefined){g.boardNo=1;g.boards=[];g.ante=g.c
 function endBoard(g){
   const n=g.boardNo,net=[0,1].map(p=>g.stacks[p]-g.boardStart[p]);
   g.boards.push({n,ante:g.ante,net,stacks:[...g.stacks]});
-  const next=anteFor(g,n+1);
+  // out of chips (every line is decided, so the stack is all a player has): that player loses (2026-10-03 さつき)
+  const out=[0,1].filter(p=>g.stacks[p]===0);
+  if(out.length)return finish(g,out.length===1?out[0]:null,'chips');
+  const next=g.cfg.anteMode==='fill'?g.cfg.ante*2**n:anteFor(g,n+1);
   if(next<1)return finish(g,g.stacks[0]<g.stacks[1]?0:1,'ante');
   g.popups.push({type:'board',n,ante:g.ante,net,stacks:[...g.stacks],next:{n:n+1,ante:next,first:1-g.first}});
   addLog(g,`BOARD ${n} END · {0} ${g.stacks[0]} / {1} ${g.stacks[1]}`,'sys');
@@ -178,15 +187,16 @@ function showdownLine(g,L){
   const rec0={L,winner:w,pot,names:[handName(r[0].v),handName(r[1].v)],hands:[[...g.hands[0]],[...g.hands[1]]],pairs:[r[0].pair,r[1].pair],board:bc,contrib:[...g.contrib[L]]};
   g.done[L]=rec0;const rec=rec0;revealLine(g,L);
   addLog(g,`${lineName(L)} SD · {0} ${rec.hands[0].map(cardStr).join('')} ${rec.names[0]} / {1} ${rec.hands[1].map(cardStr).join('')} ${rec.names[1]} · ${w===null?`split ${pot}`:`{${w}} wins ${pot}`}`,'sys');
-  g.popups.push({type:'showdown',...rec0});
+  if(pot>0)g.popups.push({type:'showdown',...rec0}); // a line nobody put chips in needs no result window
 }
 function nextCompletion(g){g.queue.shift();g.betting=null;g.ver++;startCompletion(g)}
 function afterCompletions(g){
   const pl=g.pendingSd;g.pendingSd=[];
   for(const L of pl)showdownLine(g,L); // 横→縦の順（完成順）
-  // stack 0 after the lines are decided: the game ends here and that player loses (2026-10-02 さつき)
-  const bust=[0,1].filter(p=>g.stacks[p]===0);
-  if(bust.length)return finish(g,bust.length===1?bust[0]:null,'stack');
+  // a player with stack 0 who still has chips in undecided lines is all-in and plays on (no betting on those lines);
+  // with no chips anywhere, the game ends here (2026-10-03 さつき)
+  const chips=p=>g.stacks[p]+g.contrib.reduce((t,c,L)=>t+(g.done[L]?0:c[p]),0),out=[0,1].filter(p=>chips(p)===0);
+  if(out.length)return finish(g,out.length===1?out[0]:null,'chips');
   if(g.board.every(x=>x!==null))return endBoard(g); // the next board deals new hands
   // 完成した全ラインはフォールドかショーダウンで決着済み。決着したら必ず配り直す
   g.deck.push(...g.hands[0],...g.hands[1]);shuffle(g.deck);
@@ -198,12 +208,12 @@ function endTurn(g){
   if(g.board.every(x=>x!==null))return endBoard(g);
   g.turn=1-g.turn;g.phase='place';g.ver++;
 }
-// bust: the seat that lost (null: both at 0 at once, a draw). reason 'stack' (stack 0 after the lines were decided;
-// undecided lines keep their antes) or 'ante' (cannot post an ante of 1 on every line for the next board)
+// bust: the seat that lost (null: a draw). reason 'chips' (no chips left when a board ends) or 'ante' (fewer than 10 chips:
+// cannot post 1 on every line for the next board)
 function finish(g,bust,reason){
   g.over=true;g.phase='over';g.betting=null;const s=g.stacks;
   g.bust=bust;g.bustReason=reason;g.winner=bust===null?null:1-bust;
-  addLog(g,`GAME OVER${bust!=null?` · {${bust}} ${reason==='ante'?'cannot post the ante':'stack 0'}`:''} · {0} ${s[0]} / {1} ${s[1]} · ${g.winner===null?'DRAW':`{${g.winner}} WIN`}`,'sys');g.ver++;
+  addLog(g,`GAME OVER${bust!=null?` · {${bust}} ${reason==='ante'?'cannot post the ante':'out of chips'}`:''} · {0} ${s[0]} / {1} ${s[1]} · ${g.winner===null?'DRAW':`{${g.winner}} WIN`}`,'sys');g.ver++;
 }
 
 

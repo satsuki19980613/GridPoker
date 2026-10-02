@@ -28,7 +28,7 @@ const STEPS=[
   {t:'Showdown',p:'handから必ず2枚、boardから必ず3枚を使ったベスト5で比べ、強い方がpotを取る。同じ強さならsplit。',run:stepShowdown},
   {t:'Redeal',p:'lineが決着する（showdownかfold）たびに、両者のhandを山に戻し、4枚ずつ配り直す。',run:stepRedeal},
   {t:'次の盤面へ',p:'25マス埋まったら、stackを持ち越して次の盤面へ。anteは盤面ごとに2倍（5→10→20…）。',n:'先手・後手は盤面ごとに交代。2本同時に完成したら行→列の順にbetting。',run:stepEnd},
-  {t:'Stack 0で終局',p:'stackが0になったら、そのlineのshowdownが終わった時点で終局。0になった側の負け。',n:'all-inでも、そのlineに勝てばstackが戻るので続く。',run:stepBust},
+  {t:'チップが尽きたら負け',p:'手元が0でも、potにチップが残っていればall-inとして続く。すべてなくなったら負け。',n:'anteが足りなければ、持っている分をLine 1から順に置いてall-in。',run:stepBust},
 ];
 
 let ui=null,cur=0,tok=0,anims=[];
@@ -281,35 +281,21 @@ async function stepEnd(x){
 }
 const B2_0=ks(['Q♠','8♥','5♣','K♦']),B2_1=ks(['3♥','9♠','J♦','6♣']);
 
-// a mid-game stack of 0: OPP (10 left) calls all-in on Line 3, loses the showdown, and the game ends there
-const COL_B=lineCells(6),COL_D=lineCells(8);
+// out of chips: OPP has no stack left (all-in) but still has antes in Line 5 and Line e; both go to showdown without
+// betting, YOU takes them, and with no chips anywhere OPP is out
 async function stepBust(x){
-  const me=best(SD0),op=best(OPH),pots=[...ANTE10];pots[6]=150;pots[8]=150;
-  const done=Array(10).fill(null);done[6]=0;done[8]=0;
-  scene({cells:[...new Set([...PRE4,...COL_B,...COL_D])],rev:[...COL_B,...COL_D],hands:[H1,OPH],pots,done,stacks:[310,10]});
-  await x.wait(800);
-  ui.cells[14].classList.add('target');
-  await place(x,0,2,14);hl([L3]);
-  await Promise.all([flip(x,10,0),flip(x,12,110)]);
-  await draw(x,0,K('3♣'));
-  await x.wait(500);
-  await addStrip(x,chip(0,'bet',10));stack(0,300);await potTo(x,L3,20);
-  await x.wait(900);
-  await addStrip(x,`<span class="g-act"><span class="g-w1">OPP</span><span class="chip-a k-call">CALL</span><b>10</b><span class="pill allin">ALL-IN</span></span>`);
-  await setStack(x,1,0);await potTo(x,L3,30);
-  await x.wait(1100);
-  strip('');setHand(1,OPH,true);
-  await Promise.all([...ui.hands[1].children].map((el,i)=>x.anim(el.firstElementChild,[{transform:'perspective(600px) rotateY(90deg)'},{transform:'none'}],{duration:500,delay:i*110,easing:EASE,fill:'backwards'})));
-  markBest(0,me);await addStrip(x,`<span class="g-act"><span class="g-w0">YOU</span><span class="g-hn">${me.name}</span></span>`);
+  const all=[...Array(25).keys()],pots=[...END_POT].map(v=>v*2),done=END_W.map((w,L)=>L===4||L===9?null:w);pots[4]=20;pots[9]=20;
+  scene({cells:all.filter(i=>i!==24),rev:all,hands:[NEW0,NEW1],pots,done,stacks:[360,0]});
+  strip(`<span class="g-act"><span class="g-w1">OPP</span><b>0</b><span class="pill allin">ALL-IN</span></span><span class="g-line">potに残り 20</span>`);
   await x.wait(1300);
-  clearBest();markBest(1,op);await addStrip(x,`<span class="g-act"><span class="g-w1">OPP</span><span class="g-hn">${op.name}</span></span>`);
-  await x.wait(1300);
-  clearBest();hl([]);
-  strip(`<span class="g-act"><span class="g-w0">YOU</span><span class="g-hn">WIN</span><b>+30</b></span>`);
-  await Promise.all([potTo(x,L3,30,0),setStack(x,0,330)]);
-  await x.wait(900);
-  await pulse(x,ui.stks[1]);
-  strip(`<span class="g-act"><span class="g-hn">GAME OVER</span><span class="g-w1">OPP</span><span class="g-hn">stack 0</span><span class="g-dash">·</span><span class="g-w0">YOU</span><span class="g-hn">WIN</span></span>`);
+  ui.cells[24].classList.add('target');
+  await place(x,0,1,24);
+  hl([4]);strip(`<span class="g-line"><b>Line 5</b>betting なしで showdown</span>`);
+  await x.wait(1100);await Promise.all([potTo(x,4,20,0),setStack(x,0,380)]);
+  hl([9]);strip(`<span class="g-line"><b>Line e</b>betting なしで showdown</span>`);
+  await x.wait(1000);await Promise.all([potTo(x,9,20,0),setStack(x,0,400)]);
+  hl([]);await x.wait(500);
+  strip(`<span class="g-act"><span class="g-hn">GAME OVER</span><span class="g-w1">OPP</span><span class="g-hn">chips 0</span><span class="g-dash">·</span><span class="g-w0">YOU</span><span class="g-hn">WIN</span></span>`);
   await x.anim(ui.strip.firstElementChild,[{opacity:0},{opacity:1}],{duration:260});
   await x.wait(2600);
 }
