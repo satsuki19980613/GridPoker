@@ -63,6 +63,15 @@ try{
   await pool.query('update public.games set deadline_ms=$2 where id=$1',[g2,Date.now()-5000]);
   const t=await db.play(U[1],g2,{op:'timeout'});ok(t.view.meta.strikes.some(x=>x===1),'time-out auto-moves for the player to act');
   const rs=await db.play(U[1],g2,{op:'resign'});ok(rs.view.over&&rs.view.winner===0&&rs.view.forfeit.reason==='resign','resign ends the game');
+  // games are deleted 7 days after their last change (finished or abandoned)
+  await rpc(U[1],'select public.lobby_poll(true)');const g3=(await db.match(U[0],U[1])).game;
+  await pool.query("update public.games set updated_at=now()-interval '8 days' where id=any($1::uuid[])",[[game,g3]]);
+  await pool.query("update public.games set updated_at=now()-interval '6 days' where id=$1",[g2]);
+  await rpc(U[0],'select public.me()');
+  const left=(await pool.query('select id from public.games where id=any($1::uuid[])',[[game,g2,g3]])).rows.map(r=>r.id);
+  ok(!left.includes(game)&&!left.includes(g3)&&left.includes(g2),'me() deletes games older than 7 days (finished and abandoned), keeps newer ones');
+  const p2=await rpc(U[0],'select public.me()');ok(p2.game===null&&p2.games===2,'purge does not touch ratings or records');
+  let denied2=false;try{await rpc(U[0],'select public.purge_old_games()')}catch{denied2=true}ok(denied2,'players cannot call purge_old_games directly');
 }finally{await clean();await pool.end()}
 // the CPU needs an opponent hand of the right size; unknown cards stay unknown (null) and are only counted
 function fill(g){g.deck=Array(60).fill(0);return g}
