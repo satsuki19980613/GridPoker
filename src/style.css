@@ -78,7 +78,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--you);outline-of
 
 /* ===== stage (single screen) ===== */
 .stage{position:relative;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:2px 12px 12px;overflow:auto;
-  --cell:clamp(28px,min(calc((100vh - 262px)/9.9),calc((100vw - 28px)/7.3)),84px);--W:calc(var(--cell)*7.27)}
+  --cell:clamp(28px,min(calc((100vh - 262px)/9.9),calc((100vw - 28px)/7.3)),84px);--labF:.32;--podF:1.15;--podhF:1;--gapF:.08;--padF:.16;
+  --W:calc(var(--cell)*(5 + var(--labF) + var(--podF) + 6*var(--gapF) + 2*var(--padF)) + 2px)}
 @supports (height:100dvh){.stage{--cell:clamp(28px,min(calc((100dvh - 262px)/9.9),calc((100vw - 28px)/7.3)),84px)}}
 .stage>*{position:relative;width:var(--W);flex:none}
 
@@ -116,7 +117,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--you);outline-of
 .seat.off>:not(.plate),.handrow.off{opacity:.35}
 
 /* ===== board ===== */
-.board{background:linear-gradient(160deg,var(--board-hi),var(--board-lo));display:grid;--podw:calc(var(--cell)*1.15);--podh:calc(var(--cell)*1);--lab:calc(var(--cell)*.32);grid-template-columns:repeat(5,var(--cell)) var(--lab) var(--podw);grid-template-rows:var(--podh) var(--lab) repeat(5,calc(var(--cell)*1.3));gap:calc(var(--cell)*.08);padding:calc(var(--cell)*.16)}
+.board{background:linear-gradient(160deg,var(--board-hi),var(--board-lo));display:grid;--podw:calc(var(--cell)*var(--podF));--podh:calc(var(--cell)*var(--podhF));--lab:calc(var(--cell)*var(--labF));grid-template-columns:repeat(5,var(--cell)) var(--lab) var(--podw);grid-template-rows:var(--podh) var(--lab) repeat(5,calc(var(--cell)*1.3));gap:calc(var(--cell)*var(--gapF));padding:calc(var(--cell)*var(--padF))}
 .cell{border:0;padding:0;background:var(--well);box-shadow:inset 0 0 0 1px var(--hair);display:grid;place-items:center;position:relative;cursor:default;transition:background .15s,box-shadow .15s}
 .cell.hl{background:var(--glass-hi);box-shadow:inset 0 0 0 1.5px var(--ink)}
 .cell.target{cursor:pointer}
@@ -182,7 +183,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--you);outline-of
 @keyframes capIn{from{opacity:0;transform:translate(-50%,4px)}to{opacity:1;transform:translate(-50%,0)}}
 .best-cap b{font-size:10px;letter-spacing:.16em;color:var(--muted);margin-right:8px;font-weight:600}
 .hcard{border:0;background:none;padding:0;cursor:pointer;transition:transform .2s cubic-bezier(.2,.8,.2,1)}
-.hcard .card{--w:calc(var(--cell)*.84)}
+.hcard .card{--w:var(--hw,calc(var(--cell)*.84))}
 .hcard:hover:not(:disabled){transform:translateY(-5px)}
 .hcard.sel{transform:translateY(-11px)}
 .hcard.sel .card{box-shadow:0 0 0 2px var(--you),0 18px 30px -12px rgba(51,107,135,.5)}
@@ -419,3 +420,119 @@ body[data-screen="game"] .menu{display:none}
 .rdelta{display:flex;justify-content:center;gap:8px;align-items:baseline;margin-top:10px;font-size:12px;color:var(--muted)}
 .rdelta b{font-family:var(--f-num);font-weight:600;font-size:18px;color:var(--ink)}
 .rdelta .up{color:var(--you-text)}.rdelta .down{color:var(--cpu)}
+
+/* ===== touch ===== */
+html{-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{overscroll-behavior:none}
+button,.cell,.pod,input[type=range]{touch-action:manipulation}
+.stage,.menu,.top{-webkit-user-select:none;user-select:none}
+.app{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+@media (pointer:coarse){
+  input[type=range]{height:40px}
+  input[type=range]::-webkit-slider-thumb{width:28px;height:28px;margin-top:-13px}
+  input[type=range]::-moz-range-thumb{width:28px;height:28px}
+  .quick button{padding:10px 4px}
+}
+.seat .who{flex-wrap:nowrap}
+.seat .nm{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.seat{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}
+.handrow{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}
+
+/* ===== compact table (phones; set by fitTable) ===== */
+body.compact .stage>:not(.board){width:max(var(--W),min(100%,360px))}
+body.compact .stage{--labF:.24;--podF:.96;--podhF:.84;--gapF:.06;--padF:.1;gap:6px;padding:0 8px 8px}
+body.compact .top{padding:6px 10px}
+body.compact .seat{height:32px;gap:6px}
+body.compact .nm{font-size:13px}
+body.compact .stack .val{font-size:20px}
+body.compact .plate{height:30px}
+body.compact .plate .pv{font-size:18px;padding:0 8px}
+body.compact .plate .chip-a{padding:0 8px}
+body.compact .plate .pl{padding:0 8px 0 0}
+body.compact .handrow{padding-top:20px;gap:6px}
+body.compact .handrow .who .nm{display:none}
+body.compact .dock{height:86px;padding:8px 10px;gap:6px}
+body.compact .dock.idle{padding:8px 14px;gap:10px}
+body.compact .dock.idle .dk-title{font-size:15px;line-height:1.35;white-space:normal}
+body.compact .dk-amt{font-size:20px}
+body.compact .btn{font-size:15px;min-height:44px}
+body.compact .dk-stats{gap:4px}
+body.compact .dk-stats b{font-size:14px;margin-right:2px}
+body.compact .best-cap{font-size:10px}
+@media (max-width:430px){
+  body[data-screen="game"] .brand{display:none}
+  body[data-screen="game"] .top{grid-template-columns:1fr auto}
+  body[data-screen="game"] .navpill{justify-self:start}
+}
+
+/* ===== side layout (landscape phones; set by fitTable): board left, everything else right ===== */
+body.side[data-screen="game"] .app{
+  grid-template-columns:auto minmax(0,560px);justify-content:center;grid-template-rows:auto auto minmax(0,1fr) auto auto;
+  grid-template-areas:"board top" "board seat" "board ." "board hand" "board dock";
+  column-gap:14px;row-gap:6px;align-items:center;
+  padding:max(6px,env(safe-area-inset-top,0px)) max(10px,env(safe-area-inset-right,0px)) max(6px,env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px))}
+body.side .stage{display:contents}
+body.side .stage>:not(.board){width:auto}
+body.side .top{grid-area:top;padding:0;grid-template-columns:minmax(0,1fr) auto}
+body.side .top .brand{display:none}
+body.side .navpill{justify-self:start}
+body.side #board{grid-area:board;width:var(--W);align-self:center}
+body.side #seatCpu{grid-area:seat}
+body.side #handRow{grid-area:hand;padding-top:22px}
+body.side #action{grid-area:dock}
+
+/* ===== short screens: menu ===== */
+@media (max-height:560px){
+  .menu{place-items:start center;padding-top:0}
+  .menu .wordmark{font-size:40px}
+  .acct{margin-bottom:6px}
+  .mbtn{height:50px;font-size:18px}
+}
+@media (max-height:560px) and (min-width:640px){
+  .menu-in{width:min(640px,100%);grid-template-columns:1fr 1fr;column-gap:10px}
+  .menu .wordmark,.acct{grid-column:1/-1}
+  #vsCpu{grid-column:1;grid-row:3}
+  #vsPlayer{grid-column:2;grid-row:3}
+  #rankBtn{grid-column:1;grid-row:4}
+  .lobby{grid-column:2;grid-row:4/6;margin-top:0}
+}
+.stage{scrollbar-width:none}
+.stage::-webkit-scrollbar{display:none}
+body.compact .prog .bar{display:none}
+body.compact .prog{padding:7px 10px}
+body.compact .nbtn{padding:7px 9px;font-size:12px}
+body.compact .navpill{min-width:0;max-width:100%;overflow:hidden}
+body.compact:not(.side) .stage{justify-content:flex-end}
+@media (max-width:340px){
+  body.compact .nbtn{padding:7px 6px}
+  body.compact .prog{padding:7px 7px;gap:4px}
+  body.compact .top{gap:6px;padding:6px 8px}
+}
+body.measuring .stage{justify-content:flex-start!important}
+/* ===== dialogs on phones ===== */
+@media (max-width:420px){
+  .dlg{padding:20px 16px 16px}
+  .x{top:8px;right:8px}
+}
+@media (max-height:500px){
+  dialog{max-width:min(600px,94vw)}
+  .dlg{padding:14px 18px 14px;max-height:94vh;max-height:94dvh}
+  .dlg h2{font-size:20px;margin:2px 0 6px}
+  .x{top:8px;right:8px;width:30px;height:30px}
+  .lineview{margin-top:8px;padding:6px}
+  .lineview .card{--w:34px}
+  .sd{gap:6px 10px;margin-top:8px}
+  .sd .row .card{--w:30px}
+  .btns{margin-top:10px}
+  .btns .btn{min-height:40px}
+  .slider-top b{font-size:32px}
+  .duel{margin-top:8px}.duel div{padding:8px 12px}.duel b{font-size:22px}
+  .results li{padding:6px 10px}
+  .field{padding:8px 0}
+  .wordmark{font-size:34px}
+}
+@media (max-height:500px){#setupDlg .wordmark{display:none}}
+body.compact .seat .pill:not(.allin){display:none}
+body.compact .ptag.w0,body.compact .ptag.w1{display:none}
+body.compact .ptag .lg{display:none}
+.dlg .rank{padding-left:0}

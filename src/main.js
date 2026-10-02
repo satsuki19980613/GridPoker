@@ -94,7 +94,7 @@ function render(){
   const placed=G.board.filter(x=>x).length;
   $('#roundLbl').innerHTML=`<span class="bar"><i style="transform:scaleX(${placed/25})"></i></span><b>${placed}</b><span>/ 25</span>`;
   $('#roundLbl').setAttribute('aria-label',`配置済み ${placed} / 25マス`);
-  renderSeats();renderBoard();renderHand();renderDock();
+  renderSeats();renderBoard();renderHand();renderDock();fitTable();
   const p=ui.plate;clearTimeout(ui.plateTimer);if(p&&plateOn()){const left=PLATE_MS-(Date.now()-p.t);if(left>0)ui.plateTimer=setTimeout(render,left+30)}
 }
 const inPlayOf=p=>G.contrib.reduce((s,c,L)=>s+(G.done[L]?0:c[p]),0);
@@ -132,7 +132,7 @@ function renderBoard(){
       tag=`<span class="ptag${d.winner!==null?' w'+sc(d.winner):''}">${t}</span>`;lab=`${lineName(L)}：${t}`;
     }else{
       const tot=c[0]+c[1],ls=lineState(L);face=tot;
-      if(G.pendingSd.includes(L))tag='<span class="ptag">SD pending</span>';
+      if(G.pendingSd.includes(L))tag='<span class="ptag">SD<span class="lg"> pending</span></span>';
       lab=`${lineName(L)}：pot ${tot}`;
     }
     return`<div class="podwrap${hl.has(L)?' hl':''}${L===hotL?' hot':''}" data-pl="${L}"><button class="${cls}" data-line="${L}" aria-label="${lab}"><span class="face">${face}</span></button>${tag}</div>`;
@@ -428,8 +428,56 @@ document.addEventListener('keydown',e=>{
 try{const s=JSON.parse(localStorage.getItem('g5setup4')||'null');if(s)setup=Object.assign(setup,s)}catch(e){}
 if(!setupOK(setup))setup.stack=200;
 
+/* ---------- layout: fit the table to any screen ---------- */
+// The largest cell size at which everything fits without scrolling is found by measuring the real layout.
+// Portrait / desktop: one column. Landscape phones: board on the left, the rest on the right (body.side).
+// Spare room then goes to the hand cards (--hw).
+const CELL_MAX=84,CELL_MIN=18;
+let fitKey='';
+function fits(side,rows){
+  const app=$('.app'),st=$('.stage');
+  if(side){
+    const cs=getComputedStyle(app),inner=app.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);
+    if(app.scrollHeight>app.clientHeight+1||app.scrollWidth>app.clientWidth+1||$('#board').offsetHeight>inner)return false;
+  }
+  else if(st.scrollHeight>st.clientHeight||st.scrollWidth>st.clientWidth)return false;
+  if(rows)for(const el of[$('#handRow'),$('#seatCpu')])if(el.scrollWidth>el.clientWidth+1)return false;
+  return true;
+}
+function largest(lo,hi,set,side,rows){
+  set(lo);if(!fits(side,rows))return lo;
+  set(hi);if(fits(side,rows))return hi;
+  while(hi-lo>.5){const m=(lo+hi)/2;set(m);if(fits(side,rows))lo=m;else hi=m}
+  return Math.floor(lo*2)/2;
+}
+function fitTable(force){
+  const b=document.body;
+  if(b.dataset.screen!=='game'||!G)return;
+  const app=$('.app'),st=$('.stage'),vw=app.clientWidth,vh=app.clientHeight,key=vw+'x'+vh;
+  if(!force&&key===fitKey)return;
+  fitKey=key;
+  b.classList.add('measuring'); // top-aligned while measuring: overflow above a bottom-aligned stage is not counted by scrollHeight
+  b.classList.toggle('compact',vw<640||vh<560);
+  const setC=c=>st.style.setProperty('--cell',c+'px'),setH=w=>st.style.setProperty('--hw',w+'px');
+  const run=side=>{b.classList.toggle('side',side);st.style.removeProperty('--hw');return largest(CELL_MIN,CELL_MAX,setC,side,side)}; // side: a wider board narrows the right column, so its rows must fit too
+  let side=false,c=run(false);
+  // two columns: landscape phones always when it helps; touch tablets when the board gets clearly bigger; never on a mouse desktop unless cramped
+  const touch=matchMedia('(pointer:coarse)').matches||(import.meta.env.DEV&&/[?&]touch/.test(location.search));
+  if(vw>vh*1.15&&(c<46||touch)){const cs=run(true);if(cs>c*(c<46?1.1:1.25)){side=true;c=cs}else run(false)}
+  b.classList.toggle('side',side);setC(c);
+  setH(largest(c*.84,c*(side?1.45:1.25),setH,side,true));
+  b.classList.remove('measuring');
+}
+let fitT=0;
+const refit=()=>{clearTimeout(fitT);fitT=setTimeout(()=>fitTable(true),50)};
+addEventListener('resize',refit);
+if(window.ResizeObserver)new ResizeObserver(refit).observe(document.querySelector('.app'));
+addEventListener('orientationchange',refit);
+if(window.visualViewport)visualViewport.addEventListener('resize',refit);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(refit);
+
 /* ---------- screens ---------- */
-function showScreen(n){document.body.dataset.screen=n;hideTip()}
+function showScreen(n){document.body.dataset.screen=n;hideTip();if(n!=='game'){document.body.classList.remove('side','compact');fitKey=''}}
 function toMenu(){
   stopPvp();MODE=null;clearTimeout(ui.timer);clearTimeout(ui.holdTimer);
   document.querySelectorAll('dialog[open]').forEach(d=>d.close());
