@@ -24,9 +24,14 @@
 | 手の処理 | Neon Function `game`（`server/game/`。`match`・`act`・`timeout`・`resign`）。DB の所有者として 1 リクエスト 1 トランザクション、ゲーム行をロック |
 | ホスティング | Cloudflare Pages（`gridpoker.pages.dev`）。ヘッダーは `public/_headers` |
 
+### ゲーム設定（全ゲーム共通・固定。2026-10-02 さつき）
+
+- **Stack 200・Ante 5（全 10 line に各 5）・Min raise NL・先手／後手ランダム**。VS CPU も VS Player も同じで、変更する画面は無い。
+- Min raise NL＝そのラインでこれまでの最大の raise 幅以上（最低は ante 額の 5）。Pot Limit の上限・相手が cover できない額は不可、は従来どおり。
+- 実装は `src/engine.js` の `RULES`（`newGame` の既定値。サーバーの `PVP_CFG` も同じもの）。ルールのモーダル（`index.html`）にも同じ内容を書く。
+
 ### VS Player の決まり（`server/game/rules.js`）
 
-- Stack 200・Ante 5・Min raise Fixed・先手ランダム。
 - 1 アクション 60 秒（ライン完成時は +6 秒）。時間切れは相手のクライアントが申告し、サーバーが代わりに指す（ランダムに配置／check か fold）。3 回連続で負け。
 - Rating は Elo（初期 1500・K=32）。投了・時間切れ負けも 1 敗。
 - ゲームの記録は最後の変更から 7 日で削除（終局・放置とも。Rating と勝敗数は残る）。定期実行は使わず、`me()`（ログイン・起動時）と `lobby_poll`（約 20 回に 1 回）が `purge_old_games()` を呼ぶ。

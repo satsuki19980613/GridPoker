@@ -43,8 +43,11 @@ function handName(v){
 const rnd=globalThis.crypto&&globalThis.crypto.getRandomValues?()=>globalThis.crypto.getRandomValues(new Uint32Array(1))[0]/4294967296:Math.random;
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 
+// Fixed game settings for every game (VS CPU and VS Player; 2026-10-02 さつき): stack 200, ante 5 on each of the 10 lines,
+// NL min raise (at least the ante, or the largest raise so far on that line), first player at random.
+const RULES=Object.freeze({stack:200,ante:5,minRaiseMode:'last',first:'random'});
 function newGame(cfg){
-  const g={cfg:Object.assign({stack:200,ante:5,minRaiseMode:'fixed',first:'you'},cfg),log:[],popups:[],ver:0,over:false,winner:null};
+  const g={cfg:Object.assign({},RULES,cfg),log:[],popups:[],ver:0,over:false,winner:null};
   g.cfg.minRaise=g.cfg.ante; // ミニマムレイズ幅の下限＝アンティ
   g.deck=shuffle([...Array(52).keys()]);
   g.board=Array(25).fill(null);
@@ -190,4 +193,4 @@ function forfeit(g,p,reason){
   addLog(g,`{${p}} ${reason==='resign'?'resign':'time-out'} · {${1-p}} WIN`,'sys');g.ver++;
 }
 
-export{RANKCH,SUITCH,rankOf,suitOf,rankLabel,lineCells,linesOfCell,lineName,cellName,HAND_JA,cardStr,eval5,T5,B3,bestHole,catOf,handName,rnd,shuffle,newGame,addLog,drawFor,rec,actor,lineFull,visibleTo,raiseRange,put,callLine,doPlace,startCompletion,autoBet,bettingLegal,doBet,doBetRaw,pendSd,revealLine,showdownLine,nextCompletion,afterCompletions,endTurn,finish,autoMove,forfeit};
+export{RULES,RANKCH,SUITCH,rankOf,suitOf,rankLabel,lineCells,linesOfCell,lineName,cellName,HAND_JA,cardStr,eval5,T5,B3,bestHole,catOf,handName,rnd,shuffle,newGame,addLog,drawFor,rec,actor,lineFull,visibleTo,raiseRange,put,callLine,doPlace,startCompletion,autoBet,bettingLegal,doBet,doBetRaw,pendSd,revealLine,showdownLine,nextCompletion,afterCompletions,endTurn,finish,autoMove,forfeit};

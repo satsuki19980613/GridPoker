@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Grid Poker</title>
 <meta name="description" content="5×5のグリッドで10本のラインを同時に戦うポーカー。VS CPU と VS Player。">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0D0F13">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
@@ -60,26 +63,17 @@
 <dialog id="profDlg" class="sm"><button class="x" data-close type="button" aria-label="閉じる"></button><div class="dlg" id="profBody"></div></dialog>
 <dialog id="confirmDlg" class="sm"><div class="dlg" id="confirmBody"></div></dialog>
 
-<dialog id="setupDlg"><button class="x" data-close type="button" aria-label="閉じる"></button>
-  <div class="dlg">
-    <div class="eyebrow">VS CPU</div>
-    <div class="wordmark">Grid Poker</div>
-    <div class="field"><label>Stack</label><div class="seg" data-key="stack"><button data-v="100">100</button><button data-v="200">200</button><button data-v="300">300</button></div></div>
-    <div class="field"><label>Ante<span class="hint">×10 lines</span></label><div class="seg" data-key="ante"><button data-v="1">1</button><button data-v="5">5</button><button data-v="10">10</button></div></div>
-    <div class="field"><label>Min raise<span class="hint">Fixed = ante／NL = largest raise on the line</span></label><div class="seg" data-key="minRaiseMode"><button data-v="fixed">Fixed</button><button data-v="last">NL</button></div></div>
-    <div class="field"><label>先手</label><div class="seg" data-key="first"><button data-v="you">YOU</button><button data-v="cpu">CPU</button><button data-v="random">ランダム</button></div></div>
-    <div class="err" id="setupErr" role="alert" hidden>Stack must exceed ante ×10</div>
-    <div class="btns"><button class="btn ghost" id="openRules2" type="button">ルール</button><button class="btn primary" id="startBtn" type="button">開始</button></div>
-  </div>
-</dialog>
-
 <dialog id="rulesDlg"><button class="x" data-close type="button" aria-label="閉じる"></button>
   <div class="dlg">
     <div class="eyebrow">Rules</div>
     <h2>ルール</h2>
     <h3>構成</h3>
     <ul><li>5×5の盤面。行1〜5と列a〜eの10 lineが、それぞれ独立したpot（board 5枚）。マスはa1〜e5で表す。</li>
-      <li>開始時に全lineへante。handは常に4枚。</li></ul>
+      <li>handは常に4枚。</li></ul>
+    <h3>設定（全ゲーム共通・固定）</h3>
+    <ul><li>Stack 200。Ante 5（全10 lineに各5）。</li>
+      <li>Min raise：NL（そのlineで最大のraise幅以上。最低はante額）。</li>
+      <li>先手・後手はランダム。</li></ul>
     <h3>ターン</h3>
     <ul><li>hand 4枚から1枚を空きマスに伏せて置き、すぐ1枚draw。</li>
       <li>相手が置いたカードはline完成まで見えない。</li>
@@ -89,13 +83,11 @@
       <li>lineが決着するたびに両者のhandを戻し、4枚ずつredeal。</li></ul>
     <h3>Betting</h3>
     <ul><li>Pot Limit。相手がcoverできない額はbet不可。</li>
-      <li>Min raiseは設定で選択（Fixed＝ante額／NL＝そのlineの最大raise幅）。</li>
       <li>stack 0になると、残りの全lineで投入済み額のままall-in扱い。</li></ul>
     <h3>勝敗</h3>
     <ul><li>25マスで終了。stackの多い方の勝ち。先手13枚・後手12枚なので、先後を入れ替えた2ゲーム制を推奨。</li></ul>
     <h3>VS Player</h3>
-    <ul><li>Stack 200 · Ante 5 · Min raise Fixed。先手はランダム。</li>
-      <li>持ち時間は1アクション60秒。時間切れはランダムに配置、またはcheck／fold。3回連続で負け。</li>
+    <ul><li>持ち時間は1アクション60秒。時間切れはランダムに配置、またはcheck／fold。3回連続で負け。</li>
       <li>Ratingは1500から（Elo, K=32）。投了・時間切れ負けも1敗。</li></ul>
   </div>
 </dialog>

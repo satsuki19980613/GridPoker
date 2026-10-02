@@ -1,8 +1,8 @@
 // VS Player game rules on top of the engine: settings, turn clock, ratings, applying a request to a stored game.
-import{newGame,actor,doPlace,doBet,autoMove,forfeit}from'../../src/engine.js';
+import{RULES,newGame,actor,doPlace,doBet,autoMove,forfeit}from'../../src/engine.js';
 import{viewFor}from'../../src/view.js';
 
-export const PVP_CFG={stack:200,ante:5,minRaiseMode:'fixed',first:'random'};
+export const PVP_CFG=RULES; // same fixed settings as VS CPU
 export const TURN_MS=60_000;      // time to act
 export const REVEAL_MS=6_000;     // extra time when lines were completed (board reveal and result windows)
 export const GRACE_MS=1_500;      // a time-out can be claimed this long after the deadline

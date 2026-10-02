@@ -1,5 +1,5 @@
 
-import{SUITCH,suitOf,rankLabel,lineCells,linesOfCell,lineName,cellName,B3,eval5,handName,newGame,actor,raiseRange,bettingLegal,doPlace,doBet}from'./engine.js';
+import{RULES,SUITCH,suitOf,rankLabel,lineCells,linesOfCell,lineName,cellName,B3,eval5,handName,newGame,actor,raiseRange,bettingLegal,doPlace,doBet}from'./engine.js';
 import{cpuMove}from'./cpu.js';
 import{logText}from'./view.js';
 import*as realNet from'./net.js';
@@ -12,7 +12,6 @@ let ME=0,OP=1,MODE=null; // MODE: 'cpu' | 'pvp'
 let PV=null;             // VS Player: {game, ver, offset (server clock - local clock)}
 let G=null;
 let ui={popIdx:0,busy:false,snap:null,push:[],stackHold:false,disp:null,cpuGen:-1,plate:null,holdUntil:0,lockUntil:0,sel:null,raiseTo:null,hover:null,showLine:null,lastLogLen:0,timer:null,flip:new Set(),handGen:-1,newCard:null,overShown:false};
-let setup={stack:200,ante:5,first:'you',minRaiseMode:'fixed'};
 const SUIT_JA=['スペード','ハート','ダイヤ','クラブ'];
 const opTag=()=>MODE==='pvp'?'OPP':'CPU';
 const opName=()=>MODE==='pvp'&&G&&G.meta?G.meta.names[OP]:'CPU';
@@ -52,6 +51,8 @@ function plateHTML(p){
   const ln=p.k==='place'?cellName(p.cell):lineName(p.L);
   return`<div class="plate k-${p.k}${Date.now()-p.t<250?' in':''}" role="status" aria-label="${opTag()} ${PL[p.k]}${p.amt!=null?' '+p.amt:''} ${ln}"><span class="chip-a k-${p.k}">${PL[p.k]}</span>${p.amt!=null?`<span class="pv">${p.amt}</span>`:''}<span class="pl">${ln}</span></div>`;
 }
+// your latest action on the line (shown in your panel while the opponent decides)
+function myLast(L){const h=G.hist[L];for(let i=h.length-1;i>=0;i--)if(h[i].p===ME){const k=AV[h[i].a];return{k,amt:k==='check'||k==='fold'?null:h[i].to}}return null}
 function lastAgg(L,p){const h=G.hist[L];for(let i=h.length-1;i>=0;i--)if(h[i].p===p&&(h[i].a==='ベット'||h[i].a==='レイズ'))return h[i].a;return null}
 function lineState(L){
   const c=G.contrib[L],h=G.hist[L],inSd=G.phase==='betting'&&G.betting&&G.betting.line===L;
@@ -189,13 +190,14 @@ function renderDock(){
     top=`<span class="eyebrow">GAME OVER</span><span class="dk-title ${w===null?'':w===ME?'y':'c'}">${w===null?'DRAW':WS(w)+' WIN'}</span><span class="dk-stats"><b class="y">${G.stacks[ME]}</b><b class="c">${G.stacks[OP]}</b></span>`;
     row=`<button class="btn ghost" data-act="results">結果</button>${MODE==='pvp'?'<button class="btn primary" data-act="menu">メニュー</button>':'<button class="btn primary" data-act="new">再戦</button>'}`;
   }else if(a===OP){
-    idle=true;top=`<span class="eyebrow">${esc(opName())}</span><span class="dk-title">${G.phase==='betting'?lineName(G.betting.line)+' action':'考え中'}</span><span class="dots"><i></i><i></i><i></i></span>`;
+    idle=true;const mine=G.phase==='betting'?myLast(G.betting.line):null;
+    top=mine?`<span class="eyebrow">${lineName(G.betting.line)}</span><span class="dk-title"><span class="chip-a me k-${mine.k}">${PL[mine.k]}</span>${mine.amt!=null?`<span class="dk-amt y">${mine.amt}</span>`:''}</span><span class="dots"><i></i><i></i><i></i></span>`
+      :`<span class="eyebrow">${esc(opName())}</span><span class="dk-title">${G.phase==='betting'?lineName(G.betting.line)+' action':'考え中'}</span><span class="dots"><i></i><i></i><i></i></span>`;
   }else if(G.phase==='place'){
     idle=true;top=`<span class="eyebrow">YOUR TURN</span><span class="dk-title">${ui.sel===null?'カードを1枚選び、空きマスに置いてください':'置くマスを選んでください'}</span>`;
   }else if(G.phase==='betting'){
     const b=G.betting,L=b.line,lg=bettingLegal(G),c=G.contrib[L],pot=c[0]+c[1],facing=lg.mode==='facing';
-    const fk=AV[lastAgg(L,OP)]||'raise';
-    const title=facing?`<span class="chip-a k-${fk}">${PL[fk]}</span><span class="dk-amt k">${c[OP]}</span>`:(b.checks?'<span class="chip-a k-check">CHECK</span>':'YOU to act');
+    const title='<span class="you-act">YOUR ACTION</span>';
     const eff=Math.min(G.stacks[0]+c[0],G.stacks[1]+c[1]);
     const tip='Both lines completed. Showdown after both lines close.';
     const flag=G.queue.length>1?`<span class="flag" title="${tip}">+${lineName(G.queue[1])}</span>`:G.pendingSd.length?`<span class="flag" title="${tip}">${G.pendingSd.map(lineName).join(' · ')} SD pending</span>`:'';
@@ -351,13 +353,13 @@ function schedule(){
 }
 function resetTable(){
   prevRev=new Set();
-  for(const id of['#resDlg','#overDlg','#raiseDlg','#lineDlg','#logDlg','#confirmDlg'])if($(id).open)$(id).close();
+  for(const id of['#resDlg','#overDlg','#raiseDlg','#lineDlg','#logDlg','#confirmDlg','#rulesDlg'])if($(id).open)$(id).close();
   clearTimeout(ui.timer);clearTimeout(ui.holdTimer);
   ui={...ui,popIdx:0,busy:false,snap:null,push:[],stackHold:false,disp:G?[...G.stacks]:null,cpuGen:-1,flipDelay:null,plate:null,holdUntil:0,lockUntil:0,sel:null,raiseTo:null,hover:null,showLine:null,lastLogLen:0,handGen:-1,overShown:false};
 }
 function startGame(){
   stopPvp();MODE='cpu';ME=0;OP=1;
-  G=newGame({stack:setup.stack,ante:setup.ante,first:setup.first,minRaiseMode:setup.minRaiseMode});
+  G=newGame(RULES);
   resetTable();showScreen('game');afterChange();
 }
 
@@ -385,7 +387,7 @@ document.addEventListener('click',e=>{
   const li=e.target.closest('.results li');if(li){ui.showLine=+li.dataset.line;$('#overDlg').close();render();return}
   const b=e.target.closest('[data-act]');if(!b||!G)return;const act=b.dataset.act;
   try{
-    if(act==='new'){$('#overDlg').close();return openSetup()}
+    if(act==='new'){$('#overDlg').close();return startGame()}
     if(act==='menu'){$('#overDlg').close();return toMenu()}
     if(act==='results')return openOver();
     if(act==='showres')return syncModals();
@@ -406,27 +408,14 @@ $('#logBtn').addEventListener('click',openLog);
 $('#themeToggle').addEventListener('click',()=>{
   const r=document.documentElement,cur=r.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'),next=cur==='dark'?'light':'dark';
   r.dataset.theme=next;try{localStorage.setItem('gp-theme',next)}catch(e){}
+  const t=$('#themeToggle');if(t.animate&&!REDUCE)t.animate([{transform:'rotate(0deg)'},{transform:'rotate(180deg)'}],{duration:500,easing:'cubic-bezier(.2,.8,.2,1)'});
 });
 $('#rulesBtn').addEventListener('click',()=>openDlg('#rulesDlg'));
-$('#openRules2').addEventListener('click',()=>openDlg('#rulesDlg'));
 $('#menuBtn').addEventListener('click',onMenuBtn);
-function openSetup(){
-  document.querySelectorAll('#setupDlg .seg').forEach(seg=>{const k=seg.dataset.key;seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v)===String(setup[k])))});
-  chkSetup();openDlg('#setupDlg');
-}
-const setupOK=s=>s.stack-10*s.ante>0;
-function chkSetup(){const ok=setupOK(setup);$('#setupErr').hidden=ok;$('#startBtn').disabled=!ok}
-document.querySelectorAll('#setupDlg .seg').forEach(seg=>seg.addEventListener('click',e=>{
-  const b=e.target.closest('button');if(!b)return;const k=seg.dataset.key;
-  setup[k]=(k==='first'||k==='minRaiseMode')?b.dataset.v:+b.dataset.v;seg.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));chkSetup();
-}));
-$('#startBtn').addEventListener('click',()=>{if(!setupOK(setup))return;$('#setupDlg').close();try{localStorage.setItem('g5setup4',JSON.stringify(setup))}catch(e){}startGame()});
 document.addEventListener('keydown',e=>{
   if(!G||MODE===null||ui.busy||document.querySelector('dialog[open]'))return;
   if(G.phase==='place'&&actor(G)===ME&&!popup()&&['1','2','3','4'].includes(e.key)){const c=G.hands[ME][+e.key-1];if(c!==undefined){ui.sel=ui.sel===c?null:c;render()}}
 });
-try{const s=JSON.parse(localStorage.getItem('g5setup4')||'null');if(s)setup=Object.assign(setup,s)}catch(e){}
-if(!setupOK(setup))setup.stack=200;
 
 /* ---------- layout: fit the table to any screen ---------- */
 // The largest cell size at which everything fits without scrolling is found by measuring the real layout.
@@ -661,7 +650,7 @@ async function openRanking(){
 }
 
 /* ---------- menu events ---------- */
-$('#vsCpu').addEventListener('click',()=>{stopLobby(true);openSetup()});
+$('#vsCpu').addEventListener('click',()=>{stopLobby(true);startGame()});
 $('#vsPlayer').addEventListener('click',()=>LB.on?stopLobby(true):startLobby());
 $('#rankBtn').addEventListener('click',openRanking);
 $('#lobby').addEventListener('click',e=>{const b=e.target.closest('.go');if(b)challenge(b)});
