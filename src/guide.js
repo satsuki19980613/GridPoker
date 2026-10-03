@@ -23,7 +23,7 @@ const P3=n=>{const a=Array(10).fill(null);a[L3]=n;return a};
 const END_POT=[10,70,30,30,10,10,50,10,40,10],END_W=[1,0,0,1,0,1,0,1,1,0];
 
 const STEPS=[
-  {t:'盤面と10のpot',p:'5×5の盤面で、行1〜5と列a〜eの10本のlineがそれぞれ別のpot。potは空から始まり、anteは各lineが完成したときに両者が出す（1盤面目は5）。',n:'マスは列＋行で a1〜e5 と呼ぶ。',run:stepBoard},
+  {t:'盤面と10本のline',p:'5×5の盤面で、行1〜5と列a〜eの10本のlineで勝負する。lineが完成すると両者がanteを出し、そのlineがpotになる（1盤面目は5）。',n:'マスは列＋行で a1〜e5 と呼ぶ。',run:stepBoard},
   {t:'置いて、引く',p:'自分の手番では、hand 4枚から1枚を空きマスに置き、すぐ1枚引く。handは常に4枚。',n:'置いたカードは、そのマスを通る行と列の2本のlineに入る。',run:stepPlace},
   {t:'伏せて置く',p:'置いたカードは、そのlineが完成するまで相手に見えない。相手のカードも裏向きのまま。',n:'カード右上の印：青は自分、オレンジは相手が置いたカード。',run:stepHidden},
   {t:'5枚でLine完成',p:'lineの5マスが埋まると完成。伏せていたカードがすべて表になり、board 5枚がそろう。両者がanteを出す。',run:stepComplete},
