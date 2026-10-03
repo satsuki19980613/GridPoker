@@ -43,11 +43,11 @@ function handName(v){
 const rnd=globalThis.crypto&&globalThis.crypto.getRandomValues?()=>globalThis.crypto.getRandomValues(new Uint32Array(1))[0]/4294967296:Math.random;
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 
-// Fixed game settings for every game (VS CPU and VS Player; 2026-10-02 さつき): freezeout from stack 200; ante 5 on each of
-// the 10 lines on the first board, doubled every board; No Limit (all-in up to what the opponent can cover; limit 'pot' =
+// Fixed game settings for every game (VS CPU and VS Player; 2026-10-02 さつき): freezeout from stack 200; late antes (2026-10-03:
+// a line's ante, 5 on the first board and doubled every board, is posted when that line is completed, before its betting); No Limit (all-in up to what the opponent can cover; limit 'pot' =
 // the former Pot Limit, kept for comparisons); NL min raise (at least the ante, or the largest raise so far on that line);
 // the first player is random, then alternates every board.
-const RULES=Object.freeze({stack:200,ante:5,anteMode:'fill',limit:'none',minRaiseMode:'last',first:'random'});
+const RULES=Object.freeze({stack:200,ante:5,anteMode:'late',limit:'none',minRaiseMode:'last',first:'random'});
 function newGame(cfg){
   const g={cfg:Object.assign({},RULES,cfg),log:[],popups:[],ver:0,over:false,winner:null};
   g.stacks=[g.cfg.stack,g.cfg.stack];g.boardNo=0;g.boards=[];g.handGen=0;
@@ -58,24 +58,29 @@ function newGame(cfg){
 }
 // the ante of board n: the first ante doubled every board, lowered to what the short stack can post on all 10 lines
 const anteFor=(g,n)=>Math.min(g.cfg.ante*2**(n-1),Math.floor(Math.min(...g.stacks)/10));
-// anteMode 'fill' (the rule, 2026-10-03 さつき): a short stack posts the full ante line by line from Line 1 as far as its chips
-// go (all-in, nothing kept back); the other player matches line by line, so lines beyond that start with no pot.
-// anteMode 'even' (comparison): the ante drops to the short stack ÷ 10 on every line, the remainder kept back
+// anteMode 'late' (the rule, 2026-10-03 さつき): nothing is posted when a board starts. When a line is completed, before its
+// betting, both post that line's ante: min(board ante, both stacks); the short stack posts all it has (all-in) and the other
+// matches it. So no chips ever wait in undecided lines, and a stack of 0 means no chips anywhere.
+// anteMode 'fill' (comparison; also what games saved before 2026-10-03 use): the ante is posted on all 10 lines when the board
+// starts; a short stack posts the full ante line by line from Line 1 as far as its chips go (all-in, nothing kept back) and the
+// other player matches line by line, so lines beyond that start with no pot.
+// anteMode 'even' (comparison): the ante drops to the short stack ÷ 10 on every line, the remainder kept back.
 function startBoard(g,first){
-  const n=g.boardNo+1,fill=g.cfg.anteMode==='fill',a=fill?g.cfg.ante*2**(n-1):anteFor(g,n);
+  const n=g.boardNo+1,late=g.cfg.anteMode==='late',fill=g.cfg.anteMode==='fill'||late,a=fill?g.cfg.ante*2**(n-1):anteFor(g,n);
   g.boardNo=n;g.ante=a;g.minRaise=a; // ミニマムレイズ幅の下限＝その盤面のアンティ
   g.boardStart=[...g.stacks];
   g.deck=shuffle([...Array(52).keys()]);
   g.board=Array(25).fill(null);
   g.hands=[[g.deck.pop(),g.deck.pop(),g.deck.pop(),g.deck.pop()],[g.deck.pop(),g.deck.pop(),g.deck.pop(),g.deck.pop()]];
-  if(fill){
+  if(late)g.contrib=Array.from({length:10},()=>[0,0]);
+  else if(fill){
     const per=g.stacks.map(s=>Array.from({length:10},()=>{const x=Math.min(a,s);s-=x;return x}));
     g.contrib=per[0].map((x,L)=>{const m=Math.min(x,per[1][L]);return[m,m]});
     const paid=g.contrib.reduce((t,c)=>t+c[0],0);g.stacks=g.stacks.map(v=>v-paid);
   }else{g.contrib=Array.from({length:10},()=>[a,a]);g.stacks=g.stacks.map(v=>v-10*a)}
   g.done=Array(10).fill(null);
   g.first=first;g.lastDraw=[null,null];g.turn=first;g.phase='place';g.queue=[];g.pendingSd=[];g.betting=null;g.lastCell=null;g.handGen++;g.lastInc=Array(10).fill(0);g.hist=Array.from({length:10},()=>[]);
-  addLog(g,`BOARD ${n} · ante ${a}×10 · 先手 {${first}}`,'sys',{0:` · YOU ${g.hands[0].map(cardStr).join('')}`,1:` · YOU ${g.hands[1].map(cardStr).join('')}`});
+  addLog(g,`BOARD ${n} · ante ${a}${late?'':'×10'} · 先手 {${first}}`,'sys',{0:` · YOU ${g.hands[0].map(cardStr).join('')}`,1:` · YOU ${g.hands[1].map(cardStr).join('')}`});
 }
 // games saved before the freezeout rules (2026-10-02) continue as their board 1
 function migrate(g){if(g.boardNo===undefined){g.boardNo=1;g.boards=[];g.ante=g.cfg.ante;g.minRaise=g.cfg.minRaise??g.cfg.ante;g.boardStart=[g.cfg.stack,g.cfg.stack]}return g}
@@ -86,7 +91,7 @@ function endBoard(g){
   // out of chips (every line is decided, so the stack is all a player has): that player loses (2026-10-03 さつき)
   const out=[0,1].filter(p=>g.stacks[p]===0);
   if(out.length)return finish(g,out.length===1?out[0]:null,'chips');
-  const next=g.cfg.anteMode==='fill'?g.cfg.ante*2**n:anteFor(g,n+1);
+  const next=g.cfg.anteMode==='fill'||g.cfg.anteMode==='late'?g.cfg.ante*2**n:anteFor(g,n+1);
   if(next<1)return finish(g,g.stacks[0]<g.stacks[1]?0:1,'ante');
   g.popups.push({type:'board',n,ante:g.ante,net,stacks:[...g.stacks],next:{n:n+1,ante:next,first:1-g.first}});
   addLog(g,`BOARD ${n} END · {0} ${g.stacks[0]} / {1} ${g.stacks[1]}`,'sys');
@@ -131,10 +136,12 @@ function doPlace(g,p,card,cell){
 function startCompletion(g){
   if(!g.queue.length)return afterCompletions(g);
   const L=g.queue[0],c=g.contrib[L],p=g.turn,o=1-p;
+  const late=g.cfg.anteMode==='late',m=late?Math.min(g.ante,...g.stacks):0; // late antes: posted now, before this line's betting
+  if(late){c[0]=c[1]=m;g.stacks[0]-=m;g.stacks[1]-=m}
   if(c[p]<c[o])g.betting={line:L,toAct:p,mode:'facing',checks:0,raises:0};
   else if(c[p]===c[o])g.betting={line:L,toAct:p,mode:'open',checks:0,raises:0};
   else g.betting={line:L,toAct:o,mode:'facing',checks:0,raises:0};
-  revealLine(g,L);g.phase='betting';addLog(g,`${lineName(L)} 完成 · ${lineCells(L).map(x=>cardStr(g.board[x].card)).join(' ')} · pot ${c[0]+c[1]}`,'sys');g.ver++;autoBet(g);
+  revealLine(g,L);g.phase='betting';addLog(g,`${lineName(L)} 完成 · ${lineCells(L).map(x=>cardStr(g.board[x].card)).join(' ')}${late?` · ante ${m}${g.stacks[0]===0||g.stacks[1]===0?' · all-in':''}`:''} · pot ${c[0]+c[1]}`,'sys');g.ver++;autoBet(g);
 }
 function autoBet(g){
   while(g.phase==='betting'){
@@ -195,8 +202,9 @@ function afterCompletions(g){
   for(const L of pl)showdownLine(g,L); // 横→縦の順（完成順）
   // out of chips (2026-10-03 さつき): an ante is an entry fee, nobody's chips once posted, and the pot of a line always goes
   // to someone (or is split) when the line is decided, so while placing cards a player owns nothing but the right to place.
-  // Whenever lines are decided, a player left with stack 0 is out at once, even with antes still in undecided lines; those
-  // pots go to the winner (both out: a draw, each takes back its own). A stack of 0 from an all-in ante at the start of a
+  // Whenever lines are decided, a player left with stack 0 is out at once. With late antes no chips wait in undecided lines, so
+  // stack 0 means no chips anywhere (a draw is impossible). Only with fill/even can antes still sit in undecided lines: those
+  // pots go to the winner (both out: a draw, each takes back its own), and a stack of 0 from an all-in ante at the start of a
   // board places on until the next line is decided.
   const out=[0,1].filter(p=>g.stacks[p]===0);
   if(out.length){
@@ -216,8 +224,8 @@ function endTurn(g){
   if(g.board.every(x=>x!==null))return endBoard(g);
   g.turn=1-g.turn;g.phase='place';g.ver++;
 }
-// bust: the seat that lost (null: a draw). reason 'chips' (stack 0 when lines are decided) or 'ante' (anteMode 'even', fewer than 10 chips:
-// cannot post 1 on every line for the next board)
+// bust: the seat that lost (null: a draw; fill/even only). reason 'chips' (stack 0 when lines are decided; with late antes there
+// are no chips anywhere else) or 'ante' (anteMode 'even', fewer than 10 chips: cannot post 1 on every line for the next board)
 function finish(g,bust,reason){
   g.over=true;g.phase='over';g.betting=null;const s=g.stacks;
   g.bust=bust;g.bustReason=reason;g.winner=bust===null?null:1-bust;
@@ -235,10 +243,13 @@ function autoMove(g,p){
   }
   return doBet(g,p,bettingLegal(g).mode==='open'?'check':'fold');
 }
-// p loses the game regardless of stacks (resign or repeated time-outs)
+// p loses the game regardless of stacks (resign or repeated time-outs). Chips still sitting in undecided lines (the line being
+// bet, queued lines, lines waiting for their showdown, fill-mode antes) go back to whoever put them in, so the final stacks
+// add up to the total again.
 function forfeit(g,p,reason){
   if(g.over)throw new Error('game over');
-  g.over=true;g.phase='over';g.betting=null;g.queue=[];g.winner=1-p;g.forfeit={p,reason};
+  g.contrib.forEach((c,L)=>{if(g.done[L])return;g.stacks[0]+=c[0];g.stacks[1]+=c[1];g.contrib[L]=[0,0]});
+  g.over=true;g.phase='over';g.betting=null;g.queue=[];g.pendingSd=[];g.winner=1-p;g.forfeit={p,reason};
   addLog(g,`{${p}} ${reason==='resign'?'resign':'time-out'} · {${1-p}} WIN`,'sys');g.ver++;
 }
 

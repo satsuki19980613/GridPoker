@@ -17,7 +17,7 @@ function seatEquity(g,p,L,n){
   return win/n;
 }
 function cpuPlace(g,p){
-  const hand=g.hands[p];let best=null;
+  const hand=g.hands[p],late=g.cfg.anteMode==='late';let best=null;
   for(const card of hand){
     const rest=hand.filter(x=>x!==card);
     for(let cell=0;cell<25;cell++){
@@ -25,7 +25,7 @@ function cpuPlace(g,p){
       for(const L of linesOfCell(cell)){
         let syn=0;for(const k of rest){if(rankOf(k)===rankOf(card))syn+=2.5;if(suitOf(k)===suitOf(card))syn+=.4;if(Math.abs(rankOf(k)-rankOf(card))<=2)syn+=.2}
         syn+=rankOf(card)/14;
-        const pot=g.contrib[L][0]+g.contrib[L][1];const filled=lineCells(L).filter(c=>g.board[c]).length;
+        const pot=late?2*Math.min(g.ante,...g.stacks):g.contrib[L][0]+g.contrib[L][1];const filled=lineCells(L).filter(c=>g.board[c]).length;
         if(filled===4){
           // try the placement: keep the other 3 cards; the 4th is an unknown draw
           const hh=g.hands[p];g.board[cell]={card,owner:p,rev:false};g.hands[p]=rest;

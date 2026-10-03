@@ -73,7 +73,8 @@
     <dl class="spec">
       <dt>形式</dt><dd>フリーズアウト。どちらかが負けるまで盤面（25マス）を繰り返す</dd>
       <dt>Stack</dt><dd>200から。盤面をまたいで持ち越し</dd>
-      <dt>Ante</dt><dd>全10 lineに各5から。盤面ごとに2倍（5→10→20→40…）</dd>
+      <dt>Ante</dt><dd>lineが完成したとき、そのlineに各5から。盤面ごとに2倍（5→10→20→40…）</dd>
+      <dt>Ante不足</dt><dd>lineが完成したとき、stackがanteに足りなければ、持っている分を置いてall-in。相手も同額を置く</dd>
       <dt>Deck</dt><dd>52枚・1組</dd>
       <dt>Hand</dt><dd>4枚（1枚置くたびに1枚draw）</dd>
       <dt>Bet上限</dt><dd>No Limit。all-inまで可（相手がcoverできる額まで）。foldされたら、callされなかった分は戻る</dd>
@@ -83,9 +84,8 @@
     </dl>
     <h3 class="r-h">勝敗</h3>
     <dl class="spec">
-      <dt>チップ切れ</dt><dd>lineが決着した時点で手元が0なら、その場で負け（未決着のlineのpotは勝った側へ）。anteで手元が0になったときは、次にlineが決着するまで置ける</dd>
+      <dt>チップ切れ</dt><dd>lineが決着した時点で手元が0なら、その場で負け</dd>
       <dt>25マス</dt><dd>盤面の終わり。stackを持ち越して次の盤面へ（anteは2倍）</dd>
-      <dt>Ante不足</dt><dd>stackがante×10に足りないときは、持っている分をLine 1から順にante額ずつ置いてall-in。相手もlineごとに同額だけ置き、届かなかったlineはpotなし</dd>
     </dl>
     <h3 class="r-h">VS Player</h3>
     <dl class="spec">

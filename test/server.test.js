@@ -65,6 +65,62 @@ test('three consecutive time-outs lose the game; acting resets the count',()=>{
   assert.throws(()=>applyRequest(game,0,{op:'resign'},0),e=>e.code==='game_over');
 });
 
+// A stored game (as the server keeps it, a JSON round trip) in which only e5 is empty and every line but Line 5 and Line e is decided:
+// placing the last card completes both lines, and after their betting the board is full. cfg.anteMode is set ('fill'), or removed
+// for a game saved before anteMode existed.
+function storedLastCell(anteMode,stacks){
+  const g=newGame({first:'you',anteMode:anteMode??'even'});
+  if(anteMode===undefined)delete g.cfg.anteMode;
+  for(let i=0;i<24;i++)g.board[i]={card:g.deck.pop(),owner:i%2,rev:true};
+  g.done=g.done.map((_,L)=>L===4||L===9?null:{L,winner:null,pot:0,names:['',''],contrib:[0,0]});
+  g.contrib=g.contrib.map((_,L)=>L===4||L===9?(anteMode==='late'?[0,0]:[5,5]):[0,0]);g.stacks=[...stacks];
+  return{state:JSON.parse(JSON.stringify(g)),ver:1,deadline:0,strikes:[0,0]};
+}
+function stepGame(game,move){
+  const seat=actor(game.state),r=applyRequest(game,seat,{op:'act',ver:game.ver,move},0);
+  return{...game,state:r.state,strikes:r.strikes,ver:game.ver+1};
+}
+function playOutLastCell(game){
+  const seat=actor(game.state);game=stepGame(game,{type:'place',card:game.state.hands[seat][0],cell:24});
+  assert.equal(game.state.phase,'betting');
+  for(let i=0;i<4&&game.state.phase==='betting';i++)game=stepGame(game,{type:'bet',act:'check'}); // both lines: check, check
+  return game;
+}
+
+test('stored game with cfg.anteMode "fill": after the board is full the next board posts the antes on all 10 lines up front',()=>{
+  const start=storedLastCell('fill',[150,150]);
+  assert.equal(start.state.cfg.anteMode,'fill');
+  const game=playOutLastCell(start),g=game.state,prev=g.boards[0];
+  assert.equal(g.over,false);assert.equal(g.boardNo,2);assert.equal(g.ante,10);assert.equal(prev.n,1);assert.equal(prev.stacks[0]+prev.stacks[1],320);
+  assert.equal(g.cfg.anteMode,'fill');assert.ok(g.contrib.every(x=>x[0]===10&&x[1]===10),'every line holds the board 2 ante');
+  assert.deepEqual(g.stacks,prev.stacks.map(v=>v-100));assert.ok(g.board.every(x=>x===null));
+  assert.ok(g.log.some(e=>e.text.startsWith('BOARD 2 · ante 10×10')));
+  // resigning during board 2 betting hands every posted chip back
+  const seat=actor(g),r=applyRequest(game,seat,{op:'resign'},0);
+  assert.equal(r.state.winner,1-seat);assert.deepEqual(r.state.stacks,prev.stacks);assert.ok(r.state.contrib.every(x=>x[0]===0&&x[1]===0));
+});
+
+test('stored game without cfg.anteMode (saved before it existed): the next board keeps the even path, ante = min(doubled, short stack ÷ 10) on every line',()=>{
+  const start=storedLastCell(undefined,[150,60]);
+  assert.equal('anteMode' in start.state.cfg,false);
+  const game=playOutLastCell(start),g=game.state,prev=g.boards[0];
+  const a=Math.min(10,Math.floor(Math.min(...prev.stacks)/10));
+  assert.ok(a>=1&&a<10,'the short stack limits the ante');
+  assert.equal(g.over,false);assert.equal(g.boardNo,2);assert.equal(g.ante,a);assert.equal('anteMode' in g.cfg,false);
+  assert.ok(g.contrib.every(x=>x[0]===a&&x[1]===a),'the same ante on every line');assert.deepEqual(g.stacks,prev.stacks.map(v=>v-10*a));
+  assert.ok(g.log.some(e=>e.text===`BOARD 2 · ante ${a}×10 · 先手 {1}`));
+});
+
+test('resigning in the middle of betting returns the chips from undecided lines (late antes, through the server path)',()=>{
+  let game=storedLastCell('late',[200,100]);
+  game=stepGame(game,{type:'place',card:game.state.hands[0][0],cell:24});
+  assert.equal(game.state.phase,'betting');assert.deepEqual(game.state.contrib[4],[5,5]);assert.deepEqual(game.state.contrib[9],[0,0]);
+  game=stepGame(game,{type:'bet',act:'raise',to:45});
+  assert.deepEqual(game.state.stacks,[155,95]);
+  const r=applyRequest(game,1,{op:'resign'},0);
+  assert.equal(r.state.winner,0);assert.deepEqual(r.state.stacks,[200,100]);assert.ok(r.state.contrib.every(x=>x[0]===0&&x[1]===0));assert.deepEqual(r.state.pendingSd,[]);
+});
+
 test('deadline: one turn, plus reveal time when a line was completed',()=>{
   const a=newGame({first:'you'}),b=structuredClone(a);
   assert.equal(nextDeadline(a,b,0),TURN_MS);

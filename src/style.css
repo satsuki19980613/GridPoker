@@ -112,6 +112,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--you);outline-of
 .stack{display:grid;justify-items:end;line-height:1.05}
 .stack .val{font-family:var(--f-num);font-weight:600;font-size:24px;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
 .stack .sub2{font-size:10px;color:var(--muted);white-space:nowrap}
+.stack .sub2.zero{visibility:hidden}
 .seat>*,.handrow{transition:opacity .25s}
 .seat.off>:not(.plate),.handrow.off{opacity:.35}
 
@@ -137,6 +138,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--you);outline-of
 @media (hover:hover){.pod:hover .face{color:var(--you-text)}}
 .pod.done .face{color:var(--muted)}
 .pod.done{border-color:transparent}
+.pod.empty{border-color:var(--hair)}
 .pod.done.w0 .face{background:var(--you);color:#fff}
 .pod.done.w1 .face{background:var(--cpu);color:var(--cpu-ink)}
 .podwrap.hl .pod:not(.done) .face{box-shadow:inset 0 -2px 0 var(--ink)}
@@ -265,6 +267,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:0;backg
 .hist{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:4px}
 .hist li{font-size:11px;padding:2px 7px;border:1px solid var(--hair);display:flex;gap:5px;align-items:baseline;color:var(--ink-2)}
 .hist li b{font-family:var(--f-num);font-weight:700;font-size:10px}
+.hist li.sys.pend{opacity:.5}
 .hist li.y b{color:var(--you-text)}.hist li.c b{color:var(--cpu)}.hist li.sys{color:var(--muted)}
 .linebox{padding:14px 16px;font-size:13px}
 .dlg .linebox{background:none;border:0;box-shadow:none;padding:0;margin-top:12px;-webkit-backdrop-filter:none;backdrop-filter:none}

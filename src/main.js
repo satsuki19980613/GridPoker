@@ -30,6 +30,10 @@ const popup=()=>G&&ui.popIdx<G.popups.length?G.popups[ui.popIdx]:null;
 const WS=p=>p===ME?'YOU':opTag();
 // the ante posted on line L this board (less on a short stack's last line, 0 beyond it); bet amounts are shown over it
 const anteOf=L=>Math.min(G.ante??G.cfg.ante,G.contrib[L][0],G.contrib[L][1]);
+// late-ante games ('late'): a line's ante is posted when the line completes, so until then its pot is empty and the ante shown is the one to come
+const pendingAnte=L=>G.cfg.anteMode==='late'&&!G.done[L]&&G.contrib[L][0]+G.contrib[L][1]===0;
+// the ante that line L will post: a line waiting in the queue (completed with the line now being bet) posts what the stacks allow then
+const anteDue=L=>G.queue&&G.queue.includes(L)?Math.min(G.ante??G.cfg.ante,...G.stacks):G.ante??G.cfg.ante;
 const AV={'ベット':'bet','レイズ':'raise','コール':'call','チェック':'check','フォールド':'fold'};
 const PL={bet:'BET',raise:'RAISE',call:'CALL',check:'CHECK',fold:'FOLD',place:'配置'};
 const PLATE_MS=2400,HOLD_BET=1400,HOLD_PLACE=450,LOCK_MS=450;
@@ -60,7 +64,7 @@ function lastAgg(L,p){const h=G.hist[L];for(let i=h.length-1;i>=0;i--)if(h[i].p=
 function lineState(L){
   const c=G.contrib[L],h=G.hist[L],inSd=G.phase==='betting'&&G.betting&&G.betting.line===L;
   if(G.pendingSd&&G.pendingSd.includes(L))return{who:null,tag:'SD pending',short:`SD pending ${c[0]+c[1]}`,next:'SD pending. Hands are shown after the other line closes.'};
-  if(!inSd)return{who:null,tag:'',short:`ante ${c[0]}`,next:''};
+  if(!inSd)return{who:null,tag:'',short:`ante ${pendingAnte(L)?anteDue(L):c[0]}`,next:''};
   if(c[0]!==c[1]){
     const hi=c[ME]>c[OP]?ME:OP,lo=1-hi,act=AV[lastAgg(L,hi)]||'raise',tc=Math.min(c[hi]-c[lo],G.stacks[lo]);
     return{who:hi,tag:`${WS(hi)} ${act} ${c[hi]-anteOf(L)}`,short:`${WS(hi)} ${act} ${c[hi]-anteOf(L)}`,next:`${WS(lo)}：fold / call ${tc}${raiseRange(G,lo,L)?' / raise':''}`};
@@ -71,8 +75,8 @@ function lineState(L){
   return{who:null,tag:'to act',short:'to act',next};
 }
 function histHTML(L){
-  const h=G.hist[L],a=anteOf(L);
-  return`<ol class="hist"><li class="sys"><b>ANTE</b><span>${a} / ${a}</span></li>${h.map(x=>`<li class="${x.p===ME?'y':'c'}"><b>${WS(x.p)}</b><span>${AV[x.a]||x.a}${x.a==='チェック'||x.a==='フォールド'?'':' '+(x.to-a)}</span></li>`).join('')}</ol>`;
+  const h=G.hist[L],pend=pendingAnte(L),a=pend?anteDue(L):anteOf(L); // pend: not posted yet, shown dimmed
+  return`<ol class="hist"><li class="sys${pend?' pend':''}"><b>ANTE</b><span>${a} / ${a}</span></li>${h.map(x=>`<li class="${x.p===ME?'y':'c'}"><b>${WS(x.p)}</b><span>${AV[x.a]||x.a}${x.a==='チェック'||x.a==='フォールド'?'':' '+(x.to-a)}</span></li>`).join('')}</ol>`;
 }
 function lineBox(L){
   if(L===null||L===undefined)return'';
@@ -103,7 +107,9 @@ function render(){
   const p=ui.plate;clearTimeout(ui.plateTimer);if(p&&plateOn()){const left=PLATE_MS-(Date.now()-p.t);if(left>0)ui.plateTimer=setTimeout(render,left+30)}
 }
 const inPlayOf=p=>G.contrib.reduce((s,c,L)=>s+(G.done[L]?0:c[p]),0);
-const stackHTML=p=>`<span class="val">${Math.round(ui.disp?ui.disp[p]:G.stacks[p])}</span><span class="sub2">in pot ${inPlayOf(p)}</span>`;
+// "in pot" follows the stack tween, so chips on their way to a pod are not counted twice (stack + in pot stays the real total)
+const inPotShown=p=>{const n=inPlayOf(p),d=ui.disp?Math.round(ui.disp[p]):G.stacks[p];return Math.max(0,Math.min(n,G.stacks[p]+n-d))};
+const stackHTML=p=>{const v=inPotShown(p);return`<span class="val">${Math.round(ui.disp?ui.disp[p]:G.stacks[p])}</span><span class="sub2${v?'':' zero'}">in pot ${v}</span>`};
 const tagsHTML=p=>`${G.first===p?'<span class="pill">先手</span>':''}${G.stacks[p]===0&&!G.over?'<span class="pill allin">ALL-IN</span>':''}`;
 const setHTML=(el,h)=>{if(el._h!==h){el.innerHTML=h;el._h=h;return true}return false};
 function renderSeats(){
@@ -151,13 +157,14 @@ function renderBoard(){
   for(let L=0;L<10;L++){
     const p=bd.pods[L],c=G.contrib[L],d=G.done[L];let cls='pod',face,tag='',lab;
     if(d){
-      cls+=` done${d.winner!==null?' w'+sc(d.winner):''}`;face=d.pot;
+      cls+=` done${d.winner!==null?' w'+sc(d.winner):''}`;face=d.pot||''; // a line decided with no chips in it (ante 0 after an all-in) stays blank
       const t=d.folded?`${WS(d.folder)} fold`:d.winner===null?'split':`${WS(d.winner)} win`;
       tag=`<span class="ptag${d.winner!==null?' w'+sc(d.winner):''}">${t}</span>`;lab=`${lineName(L)}：${t}`;
     }else{
       face=c[0]+c[1];
       if(G.pendingSd.includes(L))tag='<span class="ptag">SD<span class="lg"> pending</span></span>';
       lab=`${lineName(L)}：pot ${face}`;
+      if(!face){cls+=' empty';face='';if(pendingAnte(L))lab=`${lineName(L)}：ante ${anteDue(L)}`} // nothing posted yet: blank pod
     }
     setCls(p.wrap,`podwrap${hl.has(L)?' hl':''}${L===hotL?' hot':''}`);setCls(p.pod,cls);
     if(p.face.textContent!==String(face))p.face.textContent=face;
@@ -241,7 +248,7 @@ function renderHand(){
 function renderDock(){
   const el=$('#action');const a=actor(G),pp=popup();let top='',row='',idle=false;
   if(pp){
-    top=`<span class="eyebrow">${lineName(pp.L)}</span><span class="dk-title">${pp.type==='fold'?'fold':'showdown'}</span>`;
+    top=pp.type==='board'?`<span class="eyebrow">BOARD ${pp.n}</span><span class="dk-title">END</span>`:`<span class="eyebrow">${lineName(pp.L)}</span><span class="dk-title">${pp.type==='fold'?'fold':'showdown'}</span>`;
     row=`<button class="btn primary" data-act="showres">結果</button>`;
   }else if(G.over){
     const w=G.winner;
@@ -256,7 +263,7 @@ function renderDock(){
   }else if(G.phase==='betting'){
     const b=G.betting,L=b.line,lg=bettingLegal(G),c=G.contrib[L],pot=c[0]+c[1],facing=lg.mode==='facing';
     const title='<span class="you-act">YOUR ACTION</span>';
-    const eff=Math.min(G.stacks[0]+c[0],G.stacks[1]+c[1]);
+    const eff=Math.min(G.stacks[0]+c[0],G.stacks[1]+c[1])-anteOf(L); // over the ante, like the bet amounts
     const tip='Both lines completed. Showdown after both lines close.';
     const flag=G.queue.length>1?`<span class="flag" title="${tip}">+${lineName(G.queue[1])}</span>`:G.pendingSd.length?`<span class="flag" title="${tip}">${G.pendingSd.map(lineName).join(' · ')} SD pending</span>`:'';
     top=`<span class="eyebrow">${lineName(L)}</span><span class="dk-title">${title}</span>${flag}<span class="dk-stats">pot<b>${pot}</b>eff<b>${eff}</b></span>`;
@@ -421,7 +428,7 @@ function tweenStacks(){
   if(!ui.disp)ui.disp=[...G.stacks];
   cancelAnimationFrame(ui.raf);
   const from=[...ui.disp],to=[...G.stacks],t0=performance.now(),D=REDUCE?0:520;
-  const paint=()=>{const a=$('#seatCpu .stack .val'),b=$('#youStack .val');if(a)a.textContent=Math.round(ui.disp[OP]);if(b)b.textContent=Math.round(ui.disp[ME])};
+  const paint=()=>{for(const[p,sel]of[[OP,'#seatCpu .stack'],[ME,'#youStack']]){const v=$(sel+' .val'),s=$(sel+' .sub2');if(v)v.textContent=Math.round(ui.disp[p]);if(s){const n=inPotShown(p);s.textContent='in pot '+n;s.classList.toggle('zero',!n)}}};
   const step=t=>{const k=D?Math.min(1,(t-t0)/D):1,e=1-Math.pow(1-k,3);ui.disp=from.map((f,i)=>f+(to[i]-f)*e);paint();if(k<1)ui.raf=requestAnimationFrame(step)};
   if(document.hidden||!D){ui.disp=to;paint();return}
   ui.raf=requestAnimationFrame(step);
