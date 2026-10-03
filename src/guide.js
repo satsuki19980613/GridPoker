@@ -28,7 +28,7 @@ const STEPS=[
   {t:'Showdown',p:'handから必ず2枚、boardから必ず3枚を使ったベスト5で比べ、強い方がpotを取る。同じ強さならsplit。',run:stepShowdown},
   {t:'Redeal',p:'lineが決着する（showdownかfold）たびに、両者のhandを山に戻し、4枚ずつ配り直す。',run:stepRedeal},
   {t:'次の盤面へ',p:'25マス埋まったら、stackを持ち越して次の盤面へ。anteは盤面ごとに2倍（5→10→20…）。',n:'先手・後手は盤面ごとに交代。2本同時に完成したら行→列の順にbetting。',run:stepEnd},
-  {t:'All-inで負けたら終わり',p:'all-inしてshowdownで負け、手元が0になったらその場で負け。他のlineのpotに残ったチップは勝った側へ。',n:'anteが足りなければ、持っている分をLine 1から順に置いてall-in（手元が0でも、lineで負けるまでは続く）。',run:stepBust},
+  {t:'手元が0になったら負け',p:'lineが決着した時点で手元が0なら、その場で負け。未決着のlineのpotに残ったチップは勝った側へ。',n:'anteが足りなければ、持っている分をLine 1から順に置いてall-in（手元が0でも、次にlineが決着するまでは置ける）。',run:stepBust},
 ];
 
 let ui=null,cur=0,tok=0,anims=[];
@@ -300,7 +300,7 @@ async function stepBust(x){
   hl([4,5]);strip(`<span class="g-line">OPP 手元 0 · potの残りは YOU へ</span>`);
   await x.wait(700);await Promise.all([potTo(x,4,20,0),potTo(x,5,20,0),setStack(x,0,400)]);
   hl([]);await x.wait(600);
-  strip(`<span class="g-act"><span class="g-hn">GAME OVER</span><span class="g-w1">OPP</span><span class="g-hn">all-in lost</span><span class="g-dash">·</span><span class="g-w0">YOU</span><span class="g-hn">WIN</span></span>`);
+  strip(`<span class="g-act"><span class="g-hn">GAME OVER</span><span class="g-w1">OPP</span><span class="g-hn">stack 0</span><span class="g-dash">·</span><span class="g-w0">YOU</span><span class="g-hn">WIN</span></span>`);
   await x.anim(ui.strip.firstElementChild,[{opacity:0},{opacity:1}],{duration:260});
   await x.wait(2600);
 }

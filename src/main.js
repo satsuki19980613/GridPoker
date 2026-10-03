@@ -328,7 +328,12 @@ function resultsHTML(){
     const mine=d.contrib[ME];let amt,cls;
     if(d.winner===null){amt='±0';cls='even'}else if(d.winner===ME){amt='+'+(d.pot-mine);cls='up'}else{amt='−'+mine;cls='down'}
     const hd=d.folded?`${WS(d.folder)} fold`:`<span class="y${d.winner===OP?' lose':''}">${d.names[ME]}</span> vs <span class="c${d.winner===ME?' lose':''}">${d.names[OP]}</span>`;
-    return`<li data-line="${d.L}" title="盤面で表示"><span class="ln">${lineName(d.L)}</span><span class="hd">${hd}</span><span class="amt ${cls}">${amt}</span></li>`}).join('')}</ol>`;
+    return`<li data-line="${d.L}" title="盤面で表示"><span class="ln">${lineName(d.L)}</span><span class="hd">${hd}</span><span class="amt ${cls}">${amt}</span></li>`}).join('')}${leftHTML()}</ol>`;
+}
+// pots of the lines still undecided when a player ran out: they go to the winner (a draw returns them)
+function leftHTML(){
+  const l=G.left;if(!l)return'';const v=l.to===null?0:l.to===ME?l.contrib[OP]:-l.contrib[ME];
+  return`<li class="brow"><span class="ln">未決着</span><span class="hd">pot ${l.contrib[0]+l.contrib[1]} → ${l.to===null?'返却':WS(l.to)}</span><span class="amt ${v>0?'up':v<0?'down':'even'}">${v>0?'+':v<0?'−':'±'}${Math.abs(v)}</span></li>`;
 }
 function openOver(){
   const w=G.winner,f=G.forfeit,res=MODE==='pvp'&&G.meta?G.meta.result:null;

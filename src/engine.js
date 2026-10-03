@@ -193,14 +193,18 @@ function nextCompletion(g){g.queue.shift();g.betting=null;g.ver++;startCompletio
 function afterCompletions(g){
   const pl=g.pendingSd;g.pendingSd=[];
   for(const L of pl)showdownLine(g,L); // 横→縦の順（完成順）
-  // all-in and lost: a player left with stack 0 after losing a showdown they had chips in is out at once, even with antes
-  // still in undecided lines; those pots go to the winner (2026-10-03 さつき). A stack of 0 that has not lost a pot (an
-  // all-in ante at the start of a board) plays on with no betting until a line it has chips in is decided.
-  const chips=p=>g.stacks[p]+g.contrib.reduce((t,c,L)=>t+(g.done[L]?0:c[p]),0);
-  const lost=p=>g.stacks[p]===0&&pl.some(L=>g.done[L].winner===1-p&&g.done[L].contrib[p]>0);
-  const out=[0,1].filter(p=>chips(p)===0||lost(p));
-  if(out.length===1){const w=1-out[0];g.contrib.forEach((c,L)=>{if(!g.done[L]){g.stacks[w]+=c[0]+c[1];g.contrib[L]=[0,0]}})}
-  if(out.length)return finish(g,out.length===1?out[0]:null,'chips');
+  // out of chips (2026-10-03 さつき): an ante is an entry fee, nobody's chips once posted, and the pot of a line always goes
+  // to someone (or is split) when the line is decided, so while placing cards a player owns nothing but the right to place.
+  // Whenever lines are decided, a player left with stack 0 is out at once, even with antes still in undecided lines; those
+  // pots go to the winner (both out: a draw, each takes back its own). A stack of 0 from an all-in ante at the start of a
+  // board places on until the next line is decided.
+  const out=[0,1].filter(p=>g.stacks[p]===0);
+  if(out.length){
+    const w=out.length===1?1-out[0]:null,left=[0,0];
+    g.contrib.forEach((c,L)=>{if(g.done[L])return;left[0]+=c[0];left[1]+=c[1];if(w===null){g.stacks[0]+=c[0];g.stacks[1]+=c[1]}else g.stacks[w]+=c[0]+c[1];g.contrib[L]=[0,0]});
+    if(left[0]+left[1]>0){g.left={to:w,contrib:left};addLog(g,`undecided pots ${left[0]+left[1]}${w===null?' · returned':` → {${w}}`}`,'sys')} // for the results list
+    return finish(g,w===null?null:out[0],'chips');
+  }
   if(g.board.every(x=>x!==null))return endBoard(g); // the next board deals new hands
   // 完成した全ラインはフォールドかショーダウンで決着済み。決着したら必ず配り直す
   g.deck.push(...g.hands[0],...g.hands[1]);shuffle(g.deck);
@@ -212,7 +216,7 @@ function endTurn(g){
   if(g.board.every(x=>x!==null))return endBoard(g);
   g.turn=1-g.turn;g.phase='place';g.ver++;
 }
-// bust: the seat that lost (null: a draw). reason 'chips' (no chips left when a board ends) or 'ante' (fewer than 10 chips:
+// bust: the seat that lost (null: a draw). reason 'chips' (stack 0 when lines are decided) or 'ante' (anteMode 'even', fewer than 10 chips:
 // cannot post 1 on every line for the next board)
 function finish(g,bust,reason){
   g.over=true;g.phase='over';g.betting=null;const s=g.stacks;

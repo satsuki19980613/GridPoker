@@ -52,7 +52,7 @@ try{
       // read the CPU's action from the log (the line history is reset when the action ends the board); a bet or raise
       // never ends the board, and its raise-to comes from the line history (the log shows the amount over the ante)
       const n0=g.log.length,L=g.betting.line;cpuMove(fill(g),seat);const e=g.log.slice(n0).find(x=>x.who===seat),m=/\} (check|call|fold|bet|raise to)\b/.exec(e.text);
-      move={type:'bet',act:{check:'check',call:'call',fold:'fold',bet:'raise','raise to':'raise'}[m[1]],to:m[1]==='bet'||m[1]==='raise to'?g.hist[L].at(-1).to:undefined}}
+      move={type:'bet',act:{check:'check',call:'call',fold:'fold',bet:'raise','raise to':'raise'}[m[1]],to:m[1]==='bet'||m[1]==='raise to'?g.hist[L].findLast(x=>x.p===seat).to:undefined}}
     if(steps===3){try{await db.play(U[seat],game,{op:'act',ver:v[0].meta.ver-1,move})}catch(e){stale=e.code==='stale'}}
     const r=await db.play(U[seat],game,{op:'act',ver:v[0].meta.ver,move});
     const o=await rpc(U[1-seat],'select public.game_poll($1,$2)',[game,v[0].meta.ver]);

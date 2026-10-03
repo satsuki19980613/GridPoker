@@ -83,7 +83,7 @@
     </dl>
     <h3 class="r-h">勝敗</h3>
     <dl class="spec">
-      <dt>チップ切れ</dt><dd>all-inしてshowdownで負け、手元が0になったらその場で負け（他のlineのpotに残ったチップは勝った側へ）。anteで手元が0になっただけなら、all-inとして続く</dd>
+      <dt>チップ切れ</dt><dd>lineが決着した時点で手元が0なら、その場で負け（未決着のlineのpotは勝った側へ）。anteで手元が0になったときは、次にlineが決着するまで置ける</dd>
       <dt>25マス</dt><dd>盤面の終わり。stackを持ち越して次の盤面へ（anteは2倍）</dd>
       <dt>Ante不足</dt><dd>stackがante×10に足りないときは、持っている分をLine 1から順にante額ずつ置いてall-in。相手もlineごとに同額だけ置き、届かなかったlineはpotなし</dd>
     </dl>

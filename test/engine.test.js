@@ -10,7 +10,7 @@ const c=s=>{const r='23456789TJQKA'.indexOf(s[0]),u='shdc'.indexOf(s[1]);return 
 function play(fuzz,i){
   const cfg={...CFGS[i%CFGS.length],first:'random'},g=newGame(cfg),total=2*cfg.stack;let steps=0;
   while(!g.over&&steps++<5000){
-    const p=actor(g);
+    const p=actor(g),b0=g.boardNo,d0=g.done.filter(Boolean).length;
     if(fuzz&&g.phase==='betting'&&Math.random()<.7){
       const lg=bettingLegal(g),r=Math.random(),amt=()=>lg.raise[0]+Math.floor(Math.random()*(lg.raise[1]-lg.raise[0]+1));
       if(lg.mode==='facing'){if(r<.3)doBet(g,p,'fold');else if(r<.6||!lg.raise)doBet(g,p,'call');else doBet(g,p,'raise',amt())}
@@ -22,6 +22,10 @@ function play(fuzz,i){
     assert.ok(g.stacks[0]>=0&&g.stacks[1]>=0,'no negative stack');
     if(!g.over)assert.deepEqual(g.hands.map(h=>h.length),[4,4],'hands stay at 4 cards');
     if(g.phase==='place')assert.equal(g.pendingSd.length,0);
+    // stack 0 is out whenever lines are decided: a game that goes on after a decision has chips in both hands
+    if(!g.over&&(g.boardNo!==b0||g.done.filter(Boolean).length>d0)){
+      const s=g.boardNo!==b0?g.boards.at(-1).stacks:g.stacks;assert.ok(s[0]>0&&s[1]>0,'stack 0 after a decision is out');
+    }
   }
   assert.ok(g.over,'game finishes');
   // freezeout: a game only ends when a player is out
@@ -31,7 +35,8 @@ function play(fuzz,i){
   let left=g.stacks[0]+g.stacks[1];for(let L=0;L<10;L++)if(!g.done[L])left+=g.contrib[L][0]+g.contrib[L][1];
   assert.equal(left,total);
   if(g.bustReason==='chips'){
-    if(g.bust!==null){assert.equal(g.stacks[g.bust],0);for(let L=0;L<10;L++)if(!g.done[L])assert.equal(g.contrib[L][g.bust],0)}
+    if(g.bust!==null)assert.equal(g.stacks[g.bust],0);
+    for(let L=0;L<10;L++)if(!g.done[L])assert.deepEqual(g.contrib[L],[0,0],'undecided pots are settled at the end');
   }else{
     assert.equal(g.bustReason,'ante');assert.ok(g.stacks[g.bust]<10,'cannot post 1 on every line');
     assert.equal(g.stacks[0]+g.stacks[1],total);
@@ -102,11 +107,12 @@ test('anteMode even (comparison): the ante drops to the short stack ÷ 10; under
   g.stacks=[391,9];endBoard(g);assert.equal(g.over,true);assert.equal(g.bust,1);assert.equal(g.bustReason,'ante');
 });
 
-// Line 1 complete with fixed cards: seat 0 holds the nuts, seat 1 junk (swap the hands with swap=true)
+// Line 1 complete with fixed cards: seat 0 holds the nuts, seat 1 junk (swap=true swaps the hands; 'split': the same straight)
 function line1(g,swap){
   const k=c=>'23456789TJQKA'.indexOf(c[0])*4+'shdc'.indexOf(c[1]);
   for(let i=0;i<5;i++)g.board[i]={card:k(['Ah','Kh','Qh','2c','3d'][i]),owner:i%2,rev:true};
-  const h=[['Jh','Th','4s','5s'].map(k),['7c','8d','9s','6c'].map(k)];g.hands=swap?[h[1],h[0]]:h;
+  const h=swap==='split'?[['Jc','Tc','4s','5s'].map(k),['Jd','Td','4c','5c'].map(k)]:[['Jh','Th','4s','5s'].map(k),['7c','8d','9s','6c'].map(k)];
+  g.hands=swap===true?[h[1],h[0]]:h;
   g.phase='betting';g.queue=[0];g.pendingSd=[];g.betting={line:0,toAct:0,mode:'open',checks:0,raises:0};
 }
 test('stack 0 is all-in, not out: no betting on the line, and winning it plays on',()=>{
@@ -120,8 +126,57 @@ test('all-in and lost: out at once even with antes left in other lines; those po
   const g=newGame({first:'you'});g.stacks=[290,0];line1(g,false);
   doBet(g,0,'check');
   assert.equal(g.over,true);assert.equal(g.winner,0);assert.equal(g.bust,1);assert.equal(g.bustReason,'chips');
-  assert.deepEqual(g.stacks,[390,0]); // 290 + every pot (5+5 on 10 lines)assert.ok(g.contrib.every(c=>c[0]===0&&c[1]===0),'undecided pots swept to the winner');
+  assert.deepEqual(g.stacks,[390,0]); // 290 + every pot (5+5 on 10 lines)
+  assert.ok(g.contrib.every((c,L)=>g.done[L]||c[0]+c[1]===0),'undecided pots swept to the winner');
+  assert.deepEqual(g.left,{to:0,contrib:[45,45]},'the undecided pots are recorded for the results list');
   assert.ok(g.board.some(x=>x===null),'ended mid-board');
+});
+
+test('stack 0 when a line without its chips is decided: out at once (antes are entry fees, not its chips)',()=>{
+  const g=newGame({first:'you'});g.stacks=[290,0];g.contrib[0]=[0,0];g.stacks[0]+=5;g.stacks[1]+=0; // Line 1 has no pot
+  const before=g.stacks[0]+g.contrib.reduce((t,c)=>t+c[0]+c[1],0);
+  line1(g,true); // seat 1 even holds the nuts on Line 1, but there is nothing to win there
+  doBet(g,0,'check');
+  assert.equal(g.over,true);assert.equal(g.winner,0);assert.equal(g.bust,1);assert.equal(g.bustReason,'chips');
+  assert.deepEqual(g.stacks,[before,0]);
+});
+
+test('a split gives the all-in player half the pot back: plays on',()=>{
+  const g=newGame({first:'you'});g.stacks=[290,0];line1(g,'split');
+  doBet(g,0,'check');
+  assert.equal(g.done[0].winner,null);assert.equal(g.over,false);assert.deepEqual(g.stacks,[295,5]);assert.equal(g.phase,'place');
+});
+
+test('both stacks 0 when a line is decided: a draw, each takes back its own antes',()=>{
+  const g=newGame({first:'you'});g.stacks=[0,0];g.contrib[0]=[0,0]; // both all-in by the ante; Line 1 has no pot
+  line1(g,false);doBet(g,0,'check');
+  assert.equal(g.over,true);assert.equal(g.winner,null);assert.equal(g.bust,null);assert.deepEqual(g.stacks,[45,45]);
+  assert.deepEqual(g.left,{to:null,contrib:[45,45]});
+});
+
+test('calling all-in on one of two lines completed together, then losing it: out after both lines are decided',()=>{
+  const g=newGame({first:'you'});const k=c=>'23456789TJQKA'.indexOf(c[0])*4+'shdc'.indexOf(c[1]);
+  // Line 1 (a1–e1) and Line a (a1–a5) complete together with a1; seat 0 holds the nuts on both
+  const cards={0:'Ah',1:'Kh',2:'Qh',3:'2c',4:'3d',5:'Ac',10:'Kc',15:'Qc',20:'2d'};
+  for(const[i,cc]of Object.entries(cards))g.board[+i]={card:k(cc),owner:+i%2,rev:true};
+  g.hands=[['Jh','Th','Jc','Tc'].map(k),['7s','8d','9s','6d'].map(k)];g.stacks=[245,45];g.turn=0;
+  g.phase='betting';g.queue=[0,5];g.pendingSd=[];g.betting={line:0,toAct:0,mode:'open',checks:0,raises:0};
+  doBet(g,0,'raise',50); // seat 0 bets 45 over the ante: puts seat 1 all-in
+  doBet(g,1,'call'); // Line a: nobody can bet against the all-in player, so it checks through; then both showdowns
+  assert.ok(g.done[0]&&g.done[5],'both lines decided');assert.equal(g.done[0].winner,0);assert.equal(g.done[5].winner,0);
+  assert.equal(g.over,true);assert.equal(g.winner,0);assert.deepEqual(g.stacks,[390,0]);
+});
+
+test('all-in lost on one of two lines completed together, but the other line won: plays on (stack after both)',()=>{
+  const g=newGame({first:'you'});const k=c=>'23456789TJQKA'.indexOf(c[0])*4+'shdc'.indexOf(c[1]);
+  const cards={0:'Ah',1:'Kh',2:'Qh',3:'2c',4:'3d',5:'Ac',10:'Kc',15:'Qc',20:'2d'};
+  for(const[i,cc]of Object.entries(cards))g.board[+i]={card:k(cc),owner:+i%2,rev:true};
+  // Line 1: seat 0 royal flush; Line a: seat 1 full house (A A A K K) beats seat 0's straight
+  g.hands=[['Jh','Th','4s','5s'].map(k),['Ad','Ks','9s','6d'].map(k)];g.stacks=[245,45];g.turn=0;
+  g.phase='betting';g.queue=[0,5];g.pendingSd=[];g.betting={line:0,toAct:0,mode:'open',checks:0,raises:0};
+  doBet(g,0,'raise',50);doBet(g,1,'call');
+  assert.equal(g.done[0].winner,0);assert.equal(g.done[5].winner,1);
+  assert.equal(g.over,false);assert.deepEqual(g.stacks,[300,10]);assert.equal(g.phase,'place');
 });
 
 test('no chips anywhere ends the game at once, even mid-board',()=>{
