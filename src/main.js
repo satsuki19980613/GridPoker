@@ -28,6 +28,8 @@ function toast(t){const el=$('#toast');const r=$('#board').getBoundingClientRect
 const popup=()=>G&&ui.popIdx<G.popups.length?G.popups[ui.popIdx]:null;
 
 const WS=p=>p===ME?'YOU':opTag();
+// the ante posted on line L this board (less on a short stack's last line, 0 beyond it); bet amounts are shown over it
+const anteOf=L=>Math.min(G.ante??G.cfg.ante,G.contrib[L][0],G.contrib[L][1]);
 const AV={'ベット':'bet','レイズ':'raise','コール':'call','チェック':'check','フォールド':'fold'};
 const PL={bet:'BET',raise:'RAISE',call:'CALL',check:'CHECK',fold:'FOLD',place:'配置'};
 const PLATE_MS=2400,HOLD_BET=1400,HOLD_PLACE=450,LOCK_MS=450;
@@ -36,7 +38,7 @@ function noteCpu(ph,hb){
   const now=Date.now();let last=null;
   G.hist.forEach((h,L)=>{for(let i=hb[L];i<h.length;i++)if(h[i].p===OP)last={L,a:h[i].a,to:h[i].to}});
   if(last){
-    const k=AV[last.a];ui.plate={k,amt:k==='check'||k==='fold'?null:last.to,L:last.L,t:now};ui.holdUntil=now+HOLD_BET;
+    const k=AV[last.a];ui.plate={k,amt:k==='check'||k==='fold'?null:last.to,v:last.to-anteOf(last.L),L:last.L,t:now};ui.holdUntil=now+HOLD_BET;
     if(actor(G)===ME&&G.phase==='betting')ui.lockUntil=now+LOCK_MS;
   }else if(ph==='place'&&actor(G)!==null&&G.lastCell!==null&&G.board[G.lastCell]&&G.board[G.lastCell].owner===OP){
     ui.plate={k:'place',cell:G.lastCell,t:now};ui.holdUntil=now+HOLD_PLACE;
@@ -50,10 +52,10 @@ function plateOn(){
 }
 function plateHTML(p){
   const ln=p.k==='place'?cellName(p.cell):lineName(p.L);
-  return`<div class="plate k-${p.k}${Date.now()-p.t<250?' in':''}" data-t="${p.t}" role="status" aria-label="${opTag()} ${PL[p.k]}${p.amt!=null?' '+p.amt:''} ${ln}"><span class="chip-a k-${p.k}">${PL[p.k]}</span>${p.amt!=null?`<span class="pv">${p.amt}</span>`:''}<span class="pl">${ln}</span></div>`;
+  return`<div class="plate k-${p.k}${Date.now()-p.t<250?' in':''}" data-t="${p.t}" role="status" aria-label="${opTag()} ${PL[p.k]}${p.amt!=null?' '+p.v:''} ${ln}"><span class="chip-a k-${p.k}">${PL[p.k]}</span>${p.amt!=null?`<span class="pv">${p.v}</span>`:''}<span class="pl">${ln}</span></div>`;
 }
 // your latest action on the line (shown in your panel while the opponent decides)
-function myLast(L){const h=G.hist[L];for(let i=h.length-1;i>=0;i--)if(h[i].p===ME){const k=AV[h[i].a];return{k,amt:k==='check'||k==='fold'?null:h[i].to}}return null}
+function myLast(L){const h=G.hist[L];for(let i=h.length-1;i>=0;i--)if(h[i].p===ME){const k=AV[h[i].a];return{k,amt:k==='check'||k==='fold'?null:h[i].to-anteOf(L)}}return null}
 function lastAgg(L,p){const h=G.hist[L];for(let i=h.length-1;i>=0;i--)if(h[i].p===p&&(h[i].a==='ベット'||h[i].a==='レイズ'))return h[i].a;return null}
 function lineState(L){
   const c=G.contrib[L],h=G.hist[L],inSd=G.phase==='betting'&&G.betting&&G.betting.line===L;
@@ -61,7 +63,7 @@ function lineState(L){
   if(!inSd)return{who:null,tag:'',short:`ante ${c[0]}`,next:''};
   if(c[0]!==c[1]){
     const hi=c[ME]>c[OP]?ME:OP,lo=1-hi,act=AV[lastAgg(L,hi)]||'raise',tc=Math.min(c[hi]-c[lo],G.stacks[lo]);
-    return{who:hi,tag:`${WS(hi)} ${act} ${c[hi]}`,short:`${WS(hi)} ${act} ${c[hi]}`,next:`${WS(lo)}：fold / call ${tc}${raiseRange(G,lo,L)?' / raise':''}`};
+    return{who:hi,tag:`${WS(hi)} ${act} ${c[hi]-anteOf(L)}`,short:`${WS(hi)} ${act} ${c[hi]-anteOf(L)}`,next:`${WS(lo)}：fold / call ${tc}${raiseRange(G,lo,L)?' / raise':''}`};
   }
   const ta=G.betting.toAct,next=`${WS(ta)}：check${raiseRange(G,ta,L)?' / bet':''}`;
   const last=h[h.length-1];
@@ -69,8 +71,8 @@ function lineState(L){
   return{who:null,tag:'to act',short:'to act',next};
 }
 function histHTML(L){
-  const h=G.hist[L],a=G.ante??G.cfg.ante;
-  return`<ol class="hist"><li class="sys"><b>ANTE</b><span>${a} / ${a}</span></li>${h.map(x=>`<li class="${x.p===ME?'y':'c'}"><b>${WS(x.p)}</b><span>${AV[x.a]||x.a}${x.a==='チェック'||x.a==='フォールド'?'':' '+x.to}</span></li>`).join('')}</ol>`;
+  const h=G.hist[L],a=anteOf(L);
+  return`<ol class="hist"><li class="sys"><b>ANTE</b><span>${a} / ${a}</span></li>${h.map(x=>`<li class="${x.p===ME?'y':'c'}"><b>${WS(x.p)}</b><span>${AV[x.a]||x.a}${x.a==='チェック'||x.a==='フォールド'?'':' '+(x.to-a)}</span></li>`).join('')}</ol>`;
 }
 function lineBox(L){
   if(L===null||L===undefined)return'';
@@ -258,7 +260,7 @@ function renderDock(){
     const tip='Both lines completed. Showdown after both lines close.';
     const flag=G.queue.length>1?`<span class="flag" title="${tip}">+${lineName(G.queue[1])}</span>`:G.pendingSd.length?`<span class="flag" title="${tip}">${G.pendingSd.map(lineName).join(' · ')} SD pending</span>`:'';
     top=`<span class="eyebrow">${lineName(L)}</span><span class="dk-title">${title}</span>${flag}<span class="dk-stats">pot<b>${pot}</b>eff<b>${eff}</b></span>`;
-    const rz=lg.raise?`<button class="btn accent" data-act="raiseOpen">${facing?'Raise':'Bet'}<small>${lg.raise[0]}${lg.raise[1]>lg.raise[0]?' – '+lg.raise[1]:''}</small></button>`:'';
+    const a0=anteOf(L),rz=lg.raise?`<button class="btn accent" data-act="raiseOpen">${facing?'Raise':'Bet'}<small>${lg.raise[0]-a0}${lg.raise[1]>lg.raise[0]?' – '+(lg.raise[1]-a0):''}</small></button>`:'';
     row=facing?`<button class="btn ghost" data-act="fold">Fold</button><button class="btn primary" data-act="call">Call<small>${lg.toCall}${lg.allin?' all-in':''}</small></button>${rz}`
       :`<button class="btn primary" data-act="check">Check</button>${rz}`;
   }
@@ -272,26 +274,32 @@ function renderDock(){
 /* ---------- modals ---------- */
 const head=(eye,title,cls='')=>`<div class="eyebrow">${eye}</div><h2${cls?` class="${cls}"`:''}>${title}</h2>`;
 function openDlg(id){const d=$(id);hideTip();if(!d.open)d.showModal()}
-function sliderHTML(lo,hi,top,potAfter,verb){
-  if(ui.raiseTo===null||ui.raiseTo<lo||ui.raiseTo>hi)ui.raiseTo=lo;
-  // No Limit: the top button is all-in (or the most the opponent can cover); pot sizes are shortcuts below it
-  const L=G.betting.line,allIn=G.contrib[L][ME]+G.stacks[ME],fit=v=>Math.min(hi,Math.max(lo,v));
-  const qs=[['min',lo],['½ pot',fit(top+Math.floor(potAfter/2))],['pot',fit(top+potAfter)],[hi===allIn?'all-in':'max',hi]].filter((q,i,arr)=>arr.findIndex(x=>x[1]===q[1])===i);
-  return`<div class="slider"><div class="slider-top"><span>${verb==='Raise'?'raise to':'bet'}</span><b id="rtv">${ui.raiseTo}</b></div>
-    <input type="range" id="rto" min="${lo}" max="${hi}" step="1" value="${ui.raiseTo}" ${lo===hi?'disabled':''} aria-label="${verb} amount">
-    <div class="quick">${qs.map(([k,v])=>`<button data-q="${v}" type="button" aria-pressed="${v===ui.raiseTo}">${k}<b>${v}</b></button>`).join('')}</div></div>`;
+// The bet modal shows amounts over the line's ante (the engine's raise-to minus the ante): Bet offers pot 50/100/150%,
+// Raise offers ×2/×3/×4 of the opponent's bet; the slider moves in steps of 5 from the minimum up to all-in (2026-10-03 さつき)
+const STEP=5,round5=v=>Math.round(v/STEP)*STEP;
+function sliderHTML(lo,hi,base,facing){
+  const L=G.betting.line,c=G.contrib[L],pot=c[0]+c[1];
+  const qs=(facing?[2,3,4].map(n=>[`×${n}`,base+n*(c[OP]-base)]):[.5,1,1.5].map(f=>[`Pot ${f*100}%`,base+round5(pot*f)]))
+    .filter(([,v])=>v>=lo&&v<hi).concat([['All-in',hi]]); // capped at what the opponent can cover, which puts them all-in
+  const vals=[lo];for(let v=base+(Math.floor((lo-base)/STEP)+1)*STEP;v<hi;v+=STEP)vals.push(v);
+  for(const[,v]of qs)if(!vals.includes(v))vals.push(v);
+  vals.sort((a,b)=>a-b);ui.raiseVals=vals;ui.raiseBase=base;
+  if(ui.raiseTo===null||!vals.includes(ui.raiseTo))ui.raiseTo=lo;
+  return`<div class="slider"><div class="slider-top"><span>${facing?'raise to':'bet'}</span><b id="rtv">${ui.raiseTo-base}</b></div>
+    <input type="range" id="rto" min="0" max="${vals.length-1}" step="1" value="${vals.indexOf(ui.raiseTo)}" ${vals.length<2?'disabled':''} aria-label="${facing?'Raise':'Bet'} amount">
+    <div class="quick">${qs.map(([k,v])=>`<button data-q="${v}" type="button" aria-pressed="${v===ui.raiseTo}">${k}<b>${v-base}</b></button>`).join('')}</div></div>`;
 }
 function fillRange(r){const lo=+r.min,hi=+r.max;r.style.setProperty('--fill',(hi>lo?(r.value-lo)/(hi-lo)*100:100)+'%')}
-function syncRaise(){const a=$('#rtv'),b=$('#rtv2'),r=$('#rto');if(a)a.textContent=ui.raiseTo;if(b)b.textContent=ui.raiseTo;if(r){r.value=ui.raiseTo;fillRange(r)}document.querySelectorAll('.quick button').forEach(q=>q.setAttribute('aria-pressed',String(+q.dataset.q===ui.raiseTo)))}
+function syncRaise(){const a=$('#rtv'),b=$('#rtv2'),r=$('#rto'),v=ui.raiseTo-ui.raiseBase;if(a)a.textContent=v;if(b)b.textContent=v;if(r){r.value=ui.raiseVals.indexOf(ui.raiseTo);fillRange(r)}document.querySelectorAll('.quick button').forEach(q=>q.setAttribute('aria-pressed',String(+q.dataset.q===ui.raiseTo)))}
 function openRaise(){
   if(G.phase!=='betting'||actor(G)!==ME)return;
   const b=G.betting,L=b.line,lg=bettingLegal(G),c=G.contrib[L],pot=c[0]+c[1];if(!lg.raise)return;
-  const facing=lg.mode==='facing',verb=facing?'Raise':'Bet';
+  const facing=lg.mode==='facing',verb=facing?'Raise':'Bet',base=anteOf(L);
   ui.raiseTo=null;
   $('#raiseBody').innerHTML=head(`${lineName(L)} · pot ${pot}`,verb)+
-    sliderHTML(lg.raise[0],lg.raise[1],facing?c[OP]:c[ME],facing?pot+(c[OP]-c[ME]):pot,verb)+
-    `<div class="btns"><button class="btn ghost" data-close type="button">キャンセル</button><button class="btn accent" data-act="raise" type="button">${verb}<small id="rtv2">${ui.raiseTo}</small></button></div>`;
-  const r=$('#rto');fillRange(r);r.addEventListener('input',()=>{ui.raiseTo=+r.value;syncRaise()});
+    sliderHTML(lg.raise[0],lg.raise[1],base,facing)+
+    `<div class="btns"><button class="btn ghost" data-close type="button">キャンセル</button><button class="btn accent" data-act="raise" type="button">${verb}<small id="rtv2">${ui.raiseTo-base}</small></button></div>`;
+  const r=$('#rto');fillRange(r);r.addEventListener('input',()=>{ui.raiseTo=ui.raiseVals[+r.value];syncRaise()});
   openDlg('#raiseDlg');
 }
 function popupHTML(pp){

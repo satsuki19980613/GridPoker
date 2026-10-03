@@ -170,8 +170,8 @@ function doBetRaw(g,p,act,to){
   }
   if(act==='raise'){
     const r=lg.raise;if(!r||to<r[0]||to>r[1])throw new Error('illegal raise');
-    const verb=lg.mode==='open'?'ベット':'レイズ';put(g,p,L,to);b.mode='facing';b.toAct=o;b.raises++;
-    rec(g,L,p,verb,to);addLog(g,`{${p}} ${verb==='ベット'?'bet':'raise to'} ${to}${g.stacks[p]===0?' · all-in':''} · pot ${g.contrib[L][0]+g.contrib[L][1]}`,p);g.ver++;return;
+    const verb=lg.mode==='open'?'ベット':'レイズ',ante=Math.min(g.ante??g.cfg.ante,...g.contrib[L]);put(g,p,L,to);b.mode='facing';b.toAct=o;b.raises++;
+    rec(g,L,p,verb,to);addLog(g,`{${p}} ${verb==='ベット'?'bet':'raise to'} ${to-ante}${g.stacks[p]===0?' · all-in':''} · pot ${g.contrib[L][0]+g.contrib[L][1]}`,p);g.ver++;return;
   }
   throw new Error('illegal bet '+act);
 }
@@ -193,9 +193,13 @@ function nextCompletion(g){g.queue.shift();g.betting=null;g.ver++;startCompletio
 function afterCompletions(g){
   const pl=g.pendingSd;g.pendingSd=[];
   for(const L of pl)showdownLine(g,L); // 横→縦の順（完成順）
-  // a player with stack 0 who still has chips in undecided lines is all-in and plays on (no betting on those lines);
-  // with no chips anywhere, the game ends here (2026-10-03 さつき)
-  const chips=p=>g.stacks[p]+g.contrib.reduce((t,c,L)=>t+(g.done[L]?0:c[p]),0),out=[0,1].filter(p=>chips(p)===0);
+  // all-in and lost: a player left with stack 0 after losing a showdown they had chips in is out at once, even with antes
+  // still in undecided lines; those pots go to the winner (2026-10-03 さつき). A stack of 0 that has not lost a pot (an
+  // all-in ante at the start of a board) plays on with no betting until a line it has chips in is decided.
+  const chips=p=>g.stacks[p]+g.contrib.reduce((t,c,L)=>t+(g.done[L]?0:c[p]),0);
+  const lost=p=>g.stacks[p]===0&&pl.some(L=>g.done[L].winner===1-p&&g.done[L].contrib[p]>0);
+  const out=[0,1].filter(p=>chips(p)===0||lost(p));
+  if(out.length===1){const w=1-out[0];g.contrib.forEach((c,L)=>{if(!g.done[L]){g.stacks[w]+=c[0]+c[1];g.contrib[L]=[0,0]}})}
   if(out.length)return finish(g,out.length===1?out[0]:null,'chips');
   if(g.board.every(x=>x!==null))return endBoard(g); // the next board deals new hands
   // 完成した全ラインはフォールドかショーダウンで決着済み。決着したら必ず配り直す

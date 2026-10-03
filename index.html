@@ -77,12 +77,13 @@
       <dt>Deck</dt><dd>52枚・1組</dd>
       <dt>Hand</dt><dd>4枚（1枚置くたびに1枚draw）</dd>
       <dt>Bet上限</dt><dd>No Limit。all-inまで可（相手がcoverできる額まで）。foldされたら、callされなかった分は戻る</dd>
+      <dt>Bet額</dt><dd>anteを除いた額。Bet：Pot 50%／100%／150%、Raise：相手のbetの×2／×3／×4。ほかに5刻みの任意の額とall-in</dd>
       <dt>Min raise</dt><dd>NL：そのlineでこれまで最大のraise幅以上（最低はante額）</dd>
       <dt>先手／後手</dt><dd>最初はランダム。盤面ごとに交代（先手13枚・後手12枚）</dd>
     </dl>
     <h3 class="r-h">勝敗</h3>
     <dl class="spec">
-      <dt>チップ切れ</dt><dd>手元とpotの中を合わせてチップが0になったら負け。手元が0でもpotにチップがあれば、all-inとして最後まで続く</dd>
+      <dt>チップ切れ</dt><dd>all-inしてshowdownで負け、手元が0になったらその場で負け（他のlineのpotに残ったチップは勝った側へ）。anteで手元が0になっただけなら、all-inとして続く</dd>
       <dt>25マス</dt><dd>盤面の終わり。stackを持ち越して次の盤面へ（anteは2倍）</dd>
       <dt>Ante不足</dt><dd>stackがante×10に足りないときは、持っている分をLine 1から順にante額ずつ置いてall-in。相手もlineごとに同額だけ置き、届かなかったlineはpotなし</dd>
     </dl>

@@ -102,13 +102,26 @@ test('anteMode even (comparison): the ante drops to the short stack ÷ 10; under
   g.stacks=[391,9];endBoard(g);assert.equal(g.over,true);assert.equal(g.bust,1);assert.equal(g.bustReason,'ante');
 });
 
-test('stack 0 is all-in, not out: no betting on the line, the game goes on while antes remain in other lines',()=>{
-  const g=newGame({first:'you'});g.stacks=[290,0];
-  for(let i=0;i<5;i++)g.board[i]={card:g.deck.pop(),owner:i%2,rev:true};
+// Line 1 complete with fixed cards: seat 0 holds the nuts, seat 1 junk (swap the hands with swap=true)
+function line1(g,swap){
+  const k=c=>'23456789TJQKA'.indexOf(c[0])*4+'shdc'.indexOf(c[1]);
+  for(let i=0;i<5;i++)g.board[i]={card:k(['Ah','Kh','Qh','2c','3d'][i]),owner:i%2,rev:true};
+  const h=[['Jh','Th','4s','5s'].map(k),['7c','8d','9s','6c'].map(k)];g.hands=swap?[h[1],h[0]]:h;
   g.phase='betting';g.queue=[0];g.pendingSd=[];g.betting={line:0,toAct:0,mode:'open',checks:0,raises:0};
+}
+test('stack 0 is all-in, not out: no betting on the line, and winning it plays on',()=>{
+  const g=newGame({first:'you'});g.stacks=[290,0];line1(g,true);
   assert.equal(bettingLegal(g).raise,null,'nothing to bet against an all-in player');
   doBet(g,0,'check'); // the all-in player checks automatically; showdown
-  assert.ok(g.done[0],'line decided');assert.equal(g.over,false,'still in: antes on the other 9 lines');assert.equal(g.phase,'place');
+  assert.ok(g.done[0],'line decided');assert.equal(g.over,false);assert.equal(g.stacks[1],10);assert.equal(g.phase,'place');
+});
+
+test('all-in and lost: out at once even with antes left in other lines; those pots go to the winner',()=>{
+  const g=newGame({first:'you'});g.stacks=[290,0];line1(g,false);
+  doBet(g,0,'check');
+  assert.equal(g.over,true);assert.equal(g.winner,0);assert.equal(g.bust,1);assert.equal(g.bustReason,'chips');
+  assert.deepEqual(g.stacks,[390,0]); // 290 + every pot (5+5 on 10 lines)assert.ok(g.contrib.every(c=>c[0]===0&&c[1]===0),'undecided pots swept to the winner');
+  assert.ok(g.board.some(x=>x===null),'ended mid-board');
 });
 
 test('no chips anywhere ends the game at once, even mid-board',()=>{
