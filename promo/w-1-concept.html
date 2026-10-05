@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>Grid Poker — concept (X 1/4, portrait, white)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="w-shots.css">
+<style>
+.page{grid-template-rows:auto 1fr auto auto}
+/* hero: words, then the board */
+.hero{display:grid;grid-template-columns:minmax(0,1fr);align-content:center;row-gap:44px;padding-top:30px}
+.word{font-family:var(--f-num);font-weight:700;font-size:84px;line-height:1;letter-spacing:.06em;color:var(--ink)}
+.tag{margin-top:26px;font-family:var(--f-mono);font-size:24px;letter-spacing:.22em;color:var(--ink)}
+.tag i{font-style:normal;color:var(--opp)}
+.sub{margin-top:12px;font-size:20px;line-height:1.8;letter-spacing:.08em;color:var(--muted)}
+/* the board diagram */
+.diag{position:relative;justify-self:center}
+.bd{display:grid;grid-template-columns:repeat(5,64px) 24px 62px;grid-template-rows:50px 22px repeat(5,74px);gap:6px;padding:14px;border:1px solid var(--hair-2);background:linear-gradient(160deg,#FFFFFF,#F3F4F7);box-shadow:0 40px 70px -40px rgba(22,26,44,.4)}
+.pod{align-self:center;justify-self:center;width:50px;height:36px;border:1px solid var(--hair-2);display:grid;place-items:center;font-family:var(--f-num);font-weight:600;font-size:18px;color:var(--ink)}
+.pod.on{border-color:var(--you)}
+.pod.paid{border-color:var(--ink);box-shadow:inset 0 -2px 0 var(--ink)}
+.lab{display:grid;place-items:center;font-family:var(--f-num);font-size:14px;color:var(--muted)}
+.lab.on{color:var(--you);font-weight:700}
+.lab.paid{color:var(--ink);font-weight:700}
+.cell{background:rgba(13,15,19,.03);box-shadow:inset 0 0 0 1px var(--hair);display:grid;place-items:center}
+.cell.on{background:rgba(51,107,135,.09);box-shadow:inset 0 0 0 1.5px rgba(51,107,135,.45)}
+.cell.paid{box-shadow:inset 0 0 0 1.5px rgba(13,15,19,.5)}
+.card{width:50px;height:68px;background:linear-gradient(160deg,#fff,#F1F2F6);color:#0D0F13;position:relative;font-family:var(--f-num);box-shadow:inset 0 0 0 1px rgba(13,15,19,.12),0 8px 14px -8px rgba(22,26,44,.45)}
+.card .r{position:absolute;top:6px;left:7px;font-weight:600;font-size:19px;letter-spacing:-.04em;line-height:1}
+.card .s{position:absolute;right:6px;bottom:5px;font-size:24px;line-height:1}
+.card.red{color:var(--red)}
+.card .o{position:absolute;top:7px;right:7px;width:6px;height:6px;background:var(--you)}
+.card .o.op{background:var(--opp)}
+.card.back{background:conic-gradient(from 45deg at 50% 50%,rgba(255,255,255,.4) 0 25%,rgba(255,255,255,.08) 0 50%,rgba(255,255,255,.3) 0 75%,rgba(255,255,255,0) 0),linear-gradient(150deg,#FFD6C4 0%,#FE7A47 52%,#B5481C 100%);box-shadow:inset 0 0 0 3px rgba(255,255,255,.7),0 8px 14px -8px rgba(22,26,44,.45)}
+.card.hero-card{outline:2px solid var(--you);outline-offset:3px}
+.corner{display:grid;place-items:center;align-content:center;font-family:var(--f-num)}
+.corner span{font-size:11px;letter-spacing:.18em;color:var(--muted)}
+.corner b{font-size:22px;font-weight:600}
+.corner em{font-style:normal;font-size:11px;color:var(--muted);letter-spacing:.04em}
+.note{position:absolute;top:-26px;white-space:nowrap}
+.note.l{left:0}.note.r{right:0}
+.note .mono{font-size:13px;letter-spacing:.14em}
+.note.l .mono{color:var(--you)}
+.note.r .mono{color:var(--ink)}
+/* flow: four steps */
+.flow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-top:1px solid var(--hair-2);margin-top:30px}
+.step{padding:14px 22px 12px 0}
+.step:nth-child(even){padding-left:22px;border-left:1px solid var(--hair)}
+.step:nth-child(n+3){border-top:1px solid var(--hair)}
+.step .n{font-family:var(--f-mono);font-size:13px;letter-spacing:.2em;color:var(--opp-t)}
+.step h3{margin-top:4px;font-family:var(--f-num);font-weight:700;font-size:24px;letter-spacing:.12em}
+.step p{margin-top:4px;font-size:18px;line-height:1.6;color:var(--ink-2)}
+/* spec strip */
+.spec{display:grid;gap:10px;margin:22px -48px 0;padding:16px 48px 20px;justify-content:stretch}
+.spec ul{display:flex;gap:26px;list-style:none;flex-wrap:wrap}
+.spec li{font-family:var(--f-mono);font-size:14px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.spec li b{color:var(--ink);font-weight:700}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="bar"><div class="logo">GRID POKER<i>.</i></div><div class="mono mid">Hold'em × Grid</div><div class="mono end">Free · Web</div></div>
+
+  <div class="hero">
+    <div>
+      <div class="word">GRID POKER</div>
+      <p class="tag">10 LINES<i>.</i> ONE BOARD<i>.</i></p>
+      <p class="sub">行と列、10本のlineで勝負。</p>
+    </div>
+    <div class="diag" aria-hidden="true">
+      <div class="note l"><div class="mono">1 card, 2 boards</div></div>
+      <div class="note r"><div class="mono">Line 1 complete · ante 5 + 5</div></div>
+      <div class="bd" id="bd"></div>
+    </div>
+  </div>
+
+  <div class="flow">
+    <div class="step"><div class="n">01</div><h3>PLACE</h3><p>1枚伏せて、1枚引く。</p></div>
+    <div class="step"><div class="n">02</div><h3>COMPLETE</h3><p>5枚そろったら open、anteを払う。</p></div>
+    <div class="step"><div class="n">03</div><h3>BET</h3><p>1 street. No Limit.</p></div>
+    <div class="step"><div class="n">04</div><h3>SHOWDOWN</h3><p>hole 2 + board 3.</p></div>
+  </div>
+
+  <div class="spec">
+    <ul><li><b>Freezeout</b></li><li>Stack <b>200</b></li><li>Ante <b>5 · on completion · ×2 every board</b></li><li><b>No Limit</b></li></ul>
+    <div class="url">gridpoker.pages.dev</div>
+  </div>
+</div>
+<script>
+// the diagram: a mid-game board. Line 1 is complete (all open, ante paid: pot 10); every other pot is still empty.
+// The highlighted card sits on Line 3 and Line c at once.
+const C=(r,s,red,op)=>`<div class="card${red?' red':''}"><span class="r">${r}</span><span class="s">${s}</span><i class="o${op?' op':''}"></i></div>`,B='<div class="card back"></div>';
+const cells={0:C('K','♠'),1:C('7','♦',1,1),2:C('Q','♣'),3:C('2','♥',1,1),4:C('9','♠'),6:B,8:C('5','♣'),11:B,12:'HERO',13:C('J','♦',1),14:B,17:C('J','♠'),19:B,22:B};
+const ROW=2,COL=2,PAID=0;let h='';
+for(let c=0;c<5;c++)h+=`<div class="pod${c===COL?' on':''}"></div>`;
+h+='<div></div><div class="corner"><span>POT</span><b>10</b><em>ante 5</em></div>';
+for(let c=0;c<5;c++)h+=`<div class="lab${c===COL?' on':''}">${'abcde'[c]}</div>`;
+h+='<div></div><div></div>';
+for(let r=0;r<5;r++){for(let c=0;c<5;c++){const i=r*5+c,on=r===ROW||c===COL;let v=cells[i]||'';if(v==='HERO')v=C('A','♥',1).replace('class="card','class="card hero-card');h+=`<div class="cell${on?' on':r===PAID?' paid':''}">${v}</div>`}
+  h+=`<div class="lab${r===ROW?' on':r===PAID?' paid':''}">${r+1}</div><div class="pod${r===ROW?' on':r===PAID?' paid':''}">${r===PAID?10:''}</div>`}
+document.getElementById('bd').innerHTML=h;
+</script>
+</body>
+</html>

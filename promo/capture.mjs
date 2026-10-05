@@ -1,15 +1,16 @@
 // Real screenshots of the app for the X post: plays VS CPU on the dev server and saves phone-size shots.
 // npm run dev, then: node promo/capture.mjs   (Playwright from the WWYD checkout, like scripts/gen-icons.mjs)
+// THEME=light SHOTS=shots-light node promo/capture.mjs : the white version (also shoots the Bet modal at Pot 100% and the Raise modal)
 import{resolve}from'node:path';
 import{pathToFileURL}from'node:url';
 const mod=process.env.PLAYWRIGHT_MODULE??resolve(import.meta.dirname,'../../WWYD/node_modules/@playwright/test/index.mjs');
 const{chromium}=await import(pathToFileURL(mod).href);
-const OUT=resolve(import.meta.dirname,'shots'),URL=process.env.APP_URL??'http://localhost:5173/';
+const THEME=process.env.THEME??'dark',OUT=resolve(import.meta.dirname,process.env.SHOTS??'shots'),URL=process.env.APP_URL??'http://localhost:5173/';
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const browser=await chromium.launch();
 try{
-  const ctx=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:3,hasTouch:true,isMobile:true,colorScheme:'dark'});
-  await ctx.addInitScript(()=>{try{localStorage.setItem('gp-theme','dark')}catch{}});
+  const ctx=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:3,hasTouch:true,isMobile:true,colorScheme:THEME});
+  await ctx.addInitScript(t=>{try{localStorage.setItem('gp-theme',t)}catch{}},THEME);
   const page=await ctx.newPage();
   await page.goto(URL);await wait(1200);
   await page.click('#vsCpu');await wait(800);
@@ -24,7 +25,9 @@ try{
         open:btn('raiseOpen'),check:btn('check'),call:btn('call'),hand:document.querySelectorAll('.hcard:not(:disabled)').length,
         placed:document.querySelectorAll('#board .cell .card').length};
     });
-    if(s.over){const multi=await page.evaluate(()=>/Board 1/.test(document.querySelector('#overBody').textContent));if(multi||process.env.ANY){await wait(2200);await shot('over','4-over')}break}
+    if(s.over){const multi=await page.evaluate(()=>/Board 1/.test(document.querySelector('#overBody').textContent));if(multi||process.env.ANY){await wait(2200);await shot('over','4-over');break}
+      // ended on board 1: play another game until one goes past board 1
+      await tap('#overBody [data-act="new"]');await wait(900);continue}
     if(s.res){
       if(!got.showdown&&/showdown/.test(s.resText)&&!/split/.test(s.resText)){await wait(2600);await shot('showdown','3-showdown')}
       if(!got.board&&/BOARD \d+ · END/.test(s.resText)){await wait(1200);await shot('board','4-board')}
@@ -33,9 +36,15 @@ try{
     if(s.raise){continue}
     if(s.open||s.call||s.check){
       if(!got.betting&&s.placed>=12){await wait(900);await shot('betting','2-betting')}
+      if(!got.raise&&s.call&&s.open&&THEME==='light'){
+        await page.click('#action [data-act="raiseOpen"]');await wait(600);
+        await page.evaluate(()=>{const b=[...document.querySelectorAll('#raiseBody .quick button')].find(x=>/×3/.test(x.textContent));if(b)b.click()});await wait(400);await shot('raise','2-raise');
+        await page.click('#raiseBody [data-close]');await wait(400);
+      }
       if(!got.bet&&s.open&&s.placed>=8){
         await page.click('#action [data-act="raiseOpen"]');await wait(600);
-        await page.click('#raiseBody .quick button:last-child');await wait(400);await shot('bet','2-bet');
+        const pot=await page.evaluate(()=>{const b=[...document.querySelectorAll('#raiseBody .quick button')].find(x=>/Pot 100%/.test(x.textContent));if(b)b.click();return!!b});
+        if(!pot)await page.click('#raiseBody .quick button:last-child');await wait(400);await shot('bet','2-bet');
         await page.click('#raiseBody [data-close]');await wait(400);
       }
       const big=await page.evaluate(()=>{const b=document.querySelector('#action [data-act="call"] small');return b?parseInt(b.textContent):0});
