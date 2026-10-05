@@ -9,6 +9,3 @@ dist/
 .DS_Store
 Thumbs.db
 .claude/settings.local.json
-
-# 単一ファイル版（Web アプリ化の前の版。手元の参照用）
-grid-holdem.html
