@@ -3,6 +3,7 @@
 [![CI](https://github.com/satsuki19980613/GridPoker/actions/workflows/ci.yml/badge.svg)](https://github.com/satsuki19980613/GridPoker/actions/workflows/ci.yml)
 [![Live](https://github.com/satsuki19980613/GridPoker/actions/workflows/live.yml/badge.svg)](https://github.com/satsuki19980613/GridPoker/actions/workflows/live.yml)
 [![CodeQL](https://github.com/satsuki19980613/GridPoker/actions/workflows/codeql.yml/badge.svg)](https://github.com/satsuki19980613/GridPoker/actions/workflows/codeql.yml)
+[![Secrets](https://github.com/satsuki19980613/GridPoker/actions/workflows/secrets.yml/badge.svg)](https://github.com/satsuki19980613/GridPoker/actions/workflows/secrets.yml)
 
 5×5 の盤面の 10 本のライン（行 1〜5・列 a〜e）で勝負する 1 対 1 のポーカー。
 
@@ -103,6 +104,7 @@ VS CPU のみで遊ぶ場合、下表の情報はいずれもサーバーに送�
 | [CI](https://github.com/satsuki19980613/GridPoker/actions/workflows/ci.yml) | テスト（相手のハンドの非漏洩、サーバーの受け付け、データベースが個人情報を保持しないことを含む）とビルド | コード変更時 |
 | [Live](https://github.com/satsuki19980613/GridPoker/actions/workflows/live.yml) | 本番のサイトとサーバーの疎通、未ログインで読める情報が無いこと、セキュリティヘッダー。Neon の設定がある場合は、本番のデータベースに個人情報が残っていないことと、開発環境での試験ユーザー 2 人による 1 局 | 毎週・サーバー変更時 |
 | [CodeQL](https://github.com/satsuki19980613/GridPoker/actions/workflows/codeql.yml) | GitHub CodeQL による静的解析 | コード変更時・毎週 |
+| [Secrets](https://github.com/satsuki19980613/GridPoker/actions/workflows/secrets.yml) | gitleaks による秘密情報（API キー・トークン・パスワード・秘密鍵など）の検査。全ブランチの全履歴が対象 | コード変更時・毎週 |
 | [Mozilla HTTP Observatory](https://developer.mozilla.org/en-US/observatory/analyze?host=gridpoker.pages.dev) | 公開サイトのセキュリティヘッダー。**A+**（125 点、12 項目すべて合格。2026-10-11 測定）。Live が毎回測定し、A+ 未満なら失敗とする | リンク先で随時再測定できる |
 
 ### 脆弱性の報告
