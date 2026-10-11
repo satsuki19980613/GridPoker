@@ -97,7 +97,7 @@ VS CPU だけで遊ぶ場合、下の表のどれもサーバーには届きま�
 | [CI](https://github.com/satsuki19980613/GridPoker/actions/workflows/ci.yml) | テスト（相手のハンドが漏れないこと・サーバーの受け付け方を含む）とビルド | コードを変えるたび |
 | [Live](https://github.com/satsuki19980613/GridPoker/actions/workflows/live.yml) | 本番のサイトとサーバーに届くか、ログインせずに読めるものが無いか、保護ヘッダ。Neon の設定があれば、開発用の環境で試験ユーザー 2 人の 1 局 | 毎週と、サーバーを変えたとき |
 | [CodeQL](https://github.com/satsuki19980613/GridPoker/actions/workflows/codeql.yml) | GitHub 公式のコードスキャン（危ない書き方が無いか） | コードを変えるたびと毎週 |
-| [Mozilla HTTP Observatory](https://developer.mozilla.org/en-US/observatory/analyze?host=gridpoker.pages.dev) | 公開しているサイトの保護ヘッダ。Live が毎回測り、A+ でなければ失敗にする | リンク先でいつでも測り直せる |
+| [Mozilla HTTP Observatory](https://developer.mozilla.org/en-US/observatory/analyze?host=gridpoker.pages.dev) | 公開しているサイトの保護ヘッダ。**A+**（125 点、12 項目すべて合格。2026-10-11 に測定）。Live が毎回測り、A+ でなければ失敗にする | リンク先でいつでも測り直せる |
 
 ### 問題を見つけたら
 
