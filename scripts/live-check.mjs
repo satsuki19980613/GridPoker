@@ -23,11 +23,11 @@ async function timed(label,url,init={}){
 }
 function summary(title){
   const pct=(a,p)=>{const s=[...a].sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.floor(p*s.length))]};
-  const lines=[`### ${title}`,'',`${results.length-failed} / ${results.length} 件 OK`,'','| 確認 | 結果 | 詳細 |','|---|---|---|',
-    ...results.map(r=>`| ${r.name} | ${r.ok?'OK':'**NG**'} | ${String(r.detail).replace(/[\\|]/g,'\\$&').slice(0,200)} |`),
+  // the step summary file gets only the fixed check names and OK / NG; response details (network data) stay in the job log
+  const lines=[`### ${title}`,'',`${results.length-failed} / ${results.length} 件 OK（詳細はジョブのログ）`,'','| 確認 | 結果 |','|---|---|',
+    ...results.map(r=>`| ${r.name} | ${r.ok?'OK':'**NG**'} |`),
     '','| 通信 | 回数 | 中央値 ms | 95% ms | 最大 ms |','|---|---|---|---|---|',
     ...Object.entries(lat).map(([k,a])=>`| ${k} | ${a.length} | ${pct(a,.5).toFixed(0)} | ${pct(a,.95).toFixed(0)} | ${Math.max(...a).toFixed(0)} |`),''];
-  console.log(lines.join('\n'));
   if(process.env.GITHUB_STEP_SUMMARY)appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n');
 }
 
@@ -44,7 +44,7 @@ check('X-Content-Type-Options: nosniff',h('x-content-type-options')==='nosniff')
 check('Referrer-Policy',/strict-origin|no-referrer|same-origin/.test(h('referrer-policy')),h('referrer-policy'));
 const assets=[...top.body.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map(m=>m[1]);
 check('ビルドした JS / CSS が index.html にある',assets.length>=2,assets.join(' '));
-for(const a of assets){const r=await timed('site',SITE+a);check(`${a} が 200`,r.status===200,`${r.status} ${r.headers.get('content-type')}`)}
+for(const a of assets){const r=await timed('site',SITE+a);check(`ビルドしたファイル（${a.endsWith('.js')?'JS':'CSS など'}）が 200`,r.status===200,`${a} ${r.status} ${r.headers.get('content-type')}`)}
 const js=assets.find(a=>a.endsWith('.js'));
 if(js){const r=await timed('site',SITE+js);check('JS に本番の Data API / Function の URL が入っている',r.body.includes(DATA)&&r.body.includes(GAME.replace(/\/$/,'')))}
 for(const p of['/manifest.webmanifest','/sw.js','/theme.js','/icon.svg']){const r=await timed('site',SITE+p);check(`${p} が 200`,r.status===200,`${r.status}`)}
