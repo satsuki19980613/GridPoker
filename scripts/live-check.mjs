@@ -12,7 +12,7 @@ const results=[],lat={};let failed=0;
 const took=(label,t)=>{if(!lat[label]){lat[label]=[]}lat[label].push(performance.now()-t)};
 // detail holds response text: line breaks are flattened so a response cannot forge extra log lines
 function check(name,ok,detail=''){
-  const d=String(detail).replace(/\r|\n/g,' ');
+  const d=String(detail).replace(/[\r\n]/g,' ');
   results.push({name,ok,detail:d});if(!ok)failed++;
   console.log(`${ok?'ok  ':'NG  '} ${name}${d?` — ${d}`:''}`);
 }
