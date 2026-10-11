@@ -20,9 +20,11 @@
 | 見せてよい情報 | `src/view.js` の `viewFor(g, seat)`（山札・相手のハンド・相手の伏せカード・相手専用のログを除く） |
 | DB | Neon プロジェクト `grid-poker`（`autumn-lake-10711919`、シンガポール、Postgres 18）。ブランチ `production`（本番）・`dev`（開発） |
 | ログイン | Neon Auth（Managed Better Auth）の Google。自サイトの `/api/auth/*` から中継してクッキーを自サイトのものにする（`src/authProxy.js`。本番は `functions/api/auth/[[path]].js`、開発は `vite.config.js` の proxy） |
+| 個人の情報 | Neon Auth が書くメールアドレス・表示名・画像・Google のトークン・IP アドレス・ブラウザの種類は、DB のトリガーが書き込みのたびに置き換えて残さない（`db/migrations/20261011000000_auth_scrub.sql`。privatematch と同じ。2026-10-11 さつき）。アプリはどれも使わない（表示は `profiles.nickname`） |
 | 読み取り | Neon Data API の RPC（`me`・`set_nickname`・`lobby_poll`・`game_poll`・`ranking`）。表には直接触れさせない（RLS 有効・権限なし） |
 | 手の処理 | Neon Function `game`（`server/game/`。`match`・`act`・`timeout`・`resign`）。DB の所有者として 1 リクエスト 1 トランザクション、ゲーム行をロック |
 | ホスティング | Cloudflare Pages（`gridpoker.pages.dev`）。ヘッダーは `public/_headers` |
+| 自動の確認 | GitHub Actions。`ci.yml`（`npm test`・ビルド）・`live.yml`（本番に届くか・ログインせずに読めるものが無いか・Mozilla HTTP Observatory が A+ か＝`scripts/live-check.mjs`。Variable `NEON_PROJECT_ID` と Secret `NEON_API_KEY` があれば本番の DB に個人の情報が残っていないか＝`scripts/auth-audit.mjs` と、dev で結合テストも）・`codeql.yml`。README のバッジ。脆弱性の知らせ方は `SECURITY.md` |
 
 ### ゲーム設定（全ゲーム共通・固定。2026-10-02 さつき）
 
@@ -61,8 +63,10 @@
 | 単体テスト | `npm test` |
 | ビルド | `npm run build`（`dist/`） |
 | マイグレーション | `npm run db:migrate -- --branch dev`（本番は `--branch production`、**さつきの確認後**） |
+| DB のテスト | `TEST_DATABASE_URL=postgres://... npm test`（手元の Postgres に `scripts/test-db-stub.sql` と `db/migrations/*.sql` を当てておく。CI は自動。無ければ飛ばす） |
 | 結合テスト（dev） | `node scripts/itest.mjs --branch dev`（試験ユーザー 2 人で待機→対戦→終局→レーティング。後片付けあり） |
 | Function の配備 | `npm run deploy:game -- --branch dev`（本番は `--branch production`、**さつきの確認後**）。URL は `.env.*` の `VITE_GAME_URL` と `public/_headers` |
+| 本番の通信確認 | `node scripts/live-check.mjs`（環境変数 `SITE`・`AUTH_URL`・`DATA_URL`・`GAME_URL`。読み取りだけ。Actions の Live から走る） |
 
 ## 4. 規約
 
@@ -70,6 +74,7 @@
 - 画面の大きさは `src/main.js` の `fitTable` が実測で決める（はみ出さない最大のマス `--cell` と手札 `--hw`）。スマホは `body.compact`、横向きのスマホ・タッチのタブレットは盤面左・操作右の `body.side`。PC（マウス）は縦 1 列のまま。確認は開発サーバーで 320×568〜1366×600 の各サイズ（`?fake` で VS Player、`?touch` でタッチ扱い）。
 - 角は直角。色は YOU #336B87・相手 #FE7A47。トークンは `src/style.css` の `:root`。
 - ルールを変えるときは `src/engine.js` だけを直し、`npm test` と結合テストを通す。サーバーとブラウザで二重に実装しない。
+- 扱う情報・見せる範囲・ヘッダーなどの仕組みを変えたら、README の「安全とプライバシー」（表と根拠のリンク）も合わせる。
 - 秘密情報（DB の接続文字列など）はコミットしない。`.env.development` / `.env.production` は公開の住所だけ。
 - マイグレーションは追加のみ（適用済みのファイルは書き換えない）。
 
