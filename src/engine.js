@@ -39,9 +39,15 @@ function handName(v){
   const d=[R(k[0]),R(k[0]).repeat(2),R(k[0]).repeat(2)+R(k[1]).repeat(2),R(k[0]).repeat(3),R(k[0])+'-high',R(k[0])+'-high',R(k[0]).repeat(3)+R(k[1]).repeat(2),R(k[0]).repeat(4),R(k[0])+'-high'][c];
   return`${HAND_JA[c]} ${d}`;
 }
-// crypto-grade shuffle when available (server and modern browsers)
-const rnd=globalThis.crypto&&globalThis.crypto.getRandomValues?()=>globalThis.crypto.getRandomValues(new Uint32Array(1))[0]/4294967296:Math.random;
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+// crypto-grade (Web Crypto: every supported browser and Node ≥ 22): an unbiased integer in [0, n), n ≤ 2^31, by masking
+// to the next power of two and redrawing what is ≥ n (dividing or taking a remainder of a random word is slightly biased)
+const U32=new Uint32Array(1);
+function rnd(n){
+  const mask=2**(32-Math.clz32(n-1))-1;let v;
+  do{globalThis.crypto.getRandomValues(U32);v=U32[0]&mask}while(v>=n);
+  return v;
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]]}return a}
 
 // Fixed game settings for every game (VS CPU and VS Player; 2026-10-02 さつき): freezeout from stack 200; late antes (2026-10-03:
 // a line's ante, 5 on the first board and doubled every board, is posted when that line is completed, before its betting); No Limit (all-in up to what the opponent can cover; limit 'pot' =
@@ -49,9 +55,9 @@ function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1)
 // the first player is random, then alternates every board.
 const RULES=Object.freeze({stack:200,ante:5,anteMode:'late',limit:'none',minRaiseMode:'last',first:'random'});
 function newGame(cfg){
-  const g={cfg:Object.assign({},RULES,cfg),log:[],popups:[],ver:0,over:false,winner:null};
+  const g={cfg:{...RULES,...cfg},log:[],popups:[],ver:0,over:false,winner:null};
   g.stacks=[g.cfg.stack,g.cfg.stack];g.boardNo=0;g.boards=[];g.handGen=0;
-  const first=g.cfg.first==='you'?0:g.cfg.first==='cpu'?1:(rnd()<.5?0:1);
+  const first={you:0,cpu:1}[g.cfg.first]??rnd(2);
   addLog(g,`NEW GAME · stack ${g.cfg.stack} · freezeout`,'sys');
   startBoard(g,first);
   return g;
@@ -69,8 +75,8 @@ function startBoard(g,first){
   const n=g.boardNo+1,late=g.cfg.anteMode==='late',fill=g.cfg.anteMode==='fill'||late,a=fill?g.cfg.ante*2**(n-1):anteFor(g,n);
   g.boardNo=n;g.ante=a;g.minRaise=a; // ミニマムレイズ幅の下限＝その盤面のアンティ
   g.boardStart=[...g.stacks];
-  g.deck=shuffle([...Array(52).keys()]);
-  g.board=Array(25).fill(null);
+  g.deck=shuffle([...new Array(52).keys()]);
+  g.board=new Array(25).fill(null);
   g.hands=[[g.deck.pop(),g.deck.pop(),g.deck.pop(),g.deck.pop()],[g.deck.pop(),g.deck.pop(),g.deck.pop(),g.deck.pop()]];
   if(late)g.contrib=Array.from({length:10},()=>[0,0]);
   else if(fill){
@@ -78,8 +84,8 @@ function startBoard(g,first){
     g.contrib=per[0].map((x,L)=>{const m=Math.min(x,per[1][L]);return[m,m]});
     const paid=g.contrib.reduce((t,c)=>t+c[0],0);g.stacks=g.stacks.map(v=>v-paid);
   }else{g.contrib=Array.from({length:10},()=>[a,a]);g.stacks=g.stacks.map(v=>v-10*a)}
-  g.done=Array(10).fill(null);
-  g.first=first;g.lastDraw=[null,null];g.turn=first;g.phase='place';g.queue=[];g.pendingSd=[];g.betting=null;g.lastCell=null;g.handGen++;g.lastInc=Array(10).fill(0);g.hist=Array.from({length:10},()=>[]);
+  g.done=new Array(10).fill(null);
+  g.first=first;g.lastDraw=[null,null];g.turn=first;g.phase='place';g.queue=[];g.pendingSd=[];g.betting=null;g.lastCell=null;g.handGen++;g.lastInc=new Array(10).fill(0);g.hist=Array.from({length:10},()=>[]);
   addLog(g,`BOARD ${n} · ante ${a}${late?'':'×10'} · 先手 {${first}}`,'sys',{0:` · YOU ${g.hands[0].map(cardStr).join('')}`,1:` · YOU ${g.hands[1].map(cardStr).join('')}`});
 }
 // games saved before the freezeout rules (2026-10-02) continue as their board 1
@@ -239,7 +245,7 @@ function autoMove(g,p){
   if(actor(g)!==p)throw new Error('not your turn');
   if(g.phase==='place'){
     const empty=[];for(let c=0;c<25;c++)if(g.board[c]===null)empty.push(c);
-    return doPlace(g,p,g.hands[p][Math.floor(rnd()*g.hands[p].length)],empty[Math.floor(rnd()*empty.length)]);
+    return doPlace(g,p,g.hands[p][rnd(g.hands[p].length)],empty[rnd(empty.length)]);
   }
   return doBet(g,p,bettingLegal(g).mode==='open'?'check':'fold');
 }

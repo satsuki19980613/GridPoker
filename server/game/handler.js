@@ -31,7 +31,7 @@ export function createHandler(deps){
     }catch(e){
       if(e instanceof MoveError){
         const st={not_found:404,gone:409,stale:409,not_yet:409,game_over:409,not_your_turn:409,busy:409,no_profile:403}[e.code]??422;
-        return reply(st,{error:e.code,...(e.extra||{})});
+        return reply(st,{error:e.code,...e.extra});
       }
       log('game: unexpected error',e);
       return reply(500,{error:'internal'});

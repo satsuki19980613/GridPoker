@@ -12,7 +12,11 @@ export const PROXIED_PATHS=['sign-in/social','get-session','token','sign-out','o
 export const NEON_AUTH_COOKIE=/^(__Secure-|__Host-)?neon-?auth\./;
 export const AUTH_PROXY_PREFIX='/api/auth';
 
-export function isProxiedPath(path){return PROXIED_PATHS.includes(path.replace(/^\/+|\/+$/g,''))}
+/** strip trailing (and leading) slashes with a loop: /\/+$/ backtracks quadratically on a long run of slashes in a request path */
+export function trimSlashEnd(s){let e=s.length;while(e>0&&s[e-1]==='/'){e--}return s.slice(0,e)}
+const trimSlashes=s=>{let b=0;while(b<s.length&&s[b]==='/'){b++}return trimSlashEnd(s.slice(b))};
+
+export function isProxiedPath(path){return PROXIED_PATHS.includes(trimSlashes(path))}
 
 /** Neon Auth Set-Cookie → first-party cookie: drop Domain and Partitioned, SameSite=None → Lax; keep the rest */
 export function firstPartyCookie(setCookie){
@@ -36,7 +40,7 @@ const DROP_REQUEST=new Set(['host','cookie','content-length','connection','cf-co
 
 export async function toUpstream(req,upstream,path){
   const url=new URL(req.url);
-  const target=`${upstream.replace(/\/+$/,'')}/${path.replace(/^\/+/,'')}${url.search}`;
+  const target=`${trimSlashEnd(upstream)}/${path.replace(/^\/+/,'')}${url.search}`;
   const headers=new Headers();
   req.headers.forEach((v,k)=>{if(!DROP_REQUEST.has(k.toLowerCase()))headers.set(k,v)});
   const cookie=authCookies(req.headers.get('cookie'));if(cookie)headers.set('cookie',cookie);

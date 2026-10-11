@@ -30,7 +30,7 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - name: テスト用の DB（Neon と同じロールと neon_auth のひな形）にマイグレーションを適用
         run: |
           psql -h localhost -U postgres -d gptest -v ON_ERROR_STOP=1 -q -f scripts/test-db-stub.sql

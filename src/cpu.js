@@ -7,7 +7,7 @@ function seatEquity(g,p,L,n){
   const pool=[];for(let c=0;c<52;c++)if(!known.has(c))pool.push(c);
   const fixed=[];let nUnk=0;
   for(const c of lineCells(L)){if(visibleTo(g,c,p))fixed.push(g.board[c].card);else nUnk++}
-  const own=g.hands[p],miss=Math.max(0,4-own.length),need=nUnk+4+miss,b5=new Array(5),oh=[0,0,0,0],hand=[...own,...Array(miss).fill(0)];let win=0;
+  const own=g.hands[p],miss=Math.max(0,4-own.length),need=nUnk+4+miss,b5=new Array(5),oh=[0,0,0,0],hand=[...own,...new Array(miss).fill(0)];let win=0;
   for(let it=0;it<n;it++){
     for(let k=0;k<need;k++){const j=k+Math.floor(Math.random()*(pool.length-k));const t=pool[k];pool[k]=pool[j];pool[j]=t}
     let m=0;for(const x of fixed)b5[m++]=x;for(let k=0;k<nUnk;k++)b5[m++]=pool[k];
