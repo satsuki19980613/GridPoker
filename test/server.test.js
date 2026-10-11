@@ -161,6 +161,9 @@ test('auth relay: first-party cookies, only Neon Auth cookies, only listed paths
   assert.equal(firstPartyCookie('__Secure-neon-auth.session_token=abc; Domain=x.neon.tech; Path=/; HttpOnly; Secure; SameSite=None; Partitioned'),'__Secure-neon-auth.session_token=abc; Path=/; HttpOnly; Secure; SameSite=Lax');
   assert.equal(authCookies('a=1; __Secure-neon-auth.session_token=t; gp=2'),'__Secure-neon-auth.session_token=t');
   assert.ok(isProxiedPath('/get-session')&&!isProxiedPath('admin/list-users'));
+  assert.ok(isProxiedPath('//token//')&&!isProxiedPath('/')&&!isProxiedPath(''));
+  // a long run of slashes stays linear (a /\/+$/ regex took seconds here)
+  const t=performance.now();assert.ok(!isProxiedPath('a'+'/'.repeat(50000)+'x'));assert.ok(performance.now()-t<200);
 });
 
 test('auth relay response: no-store, nosniff (Pages _headers do not apply to Functions), first-party Set-Cookie, no CORS',()=>{
