@@ -1,8 +1,10 @@
 # 本物のサーバーとの通信確認。
 #   prod: 本番のサイト・ログイン中継・Function・Data API に、ログインせずに届くか（何も書き込まない）。
 #         公開しているサイトの保護ヘッダを Mozilla HTTP Observatory で測る（scripts/live-check.mjs）
+#         Neon の設定があれば、サインインで届く個人の情報が本番の DB に残っていないかも数える（scripts/auth-audit.mjs。読み取りだけ）
 #   itest: 開発用の Neon ブランチ dev にマイグレーションを当て、試験ユーザー 2 人で待機→対戦→終局→レーティング（scripts/itest.mjs）。
-#          Neon の設定（Variable NEON_PROJECT_ID・Secret NEON_API_KEY）があるときだけ
+#          そのあと dev の DB に個人の情報が残っていないかを数える
+# Neon の設定（Variable NEON_PROJECT_ID・Secret NEON_API_KEY）が無いときは、DB を読む部分を飛ばす
 # 起動：Actions → Live → Run workflow、作業ブランチ（claude/**）への push（サーバーや確認スクリプトが変わったとき）、毎週月曜
 name: Live
 
@@ -10,7 +12,7 @@ on:
   workflow_dispatch:
   push:
     branches: ['claude/**']
-    paths: ['scripts/live-check.mjs', 'scripts/itest.mjs', '.github/workflows/live.yml', 'server/**', 'db/**', 'functions/**', 'public/_headers', 'src/engine.js', 'src/view.js', 'src/authProxy.js']
+    paths: ['scripts/live-check.mjs', 'scripts/itest.mjs', 'scripts/auth-audit.mjs', '.github/workflows/live.yml', 'server/**', 'db/**', 'functions/**', 'public/_headers', 'src/engine.js', 'src/view.js', 'src/authProxy.js']
   schedule:
     - cron: '29 0 * * 1'
 
@@ -26,12 +28,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
+          cache: npm
+      - run: npm ci
       - name: 本番の通信確認と Observatory
         env:
           SITE: ${{ vars.APP_ORIGIN || 'https://gridpoker.pages.dev' }}
         run: |
           set -a; . ./.env.production; set +a
           AUTH_URL="$VITE_NEON_AUTH_URL" DATA_URL="$VITE_NEON_DATA_API_URL" GAME_URL="$VITE_GAME_URL" node scripts/live-check.mjs
+      - name: サインインで届く個人の情報が本番の DB に残っていないか（読み取りだけ）
+        if: always() && vars.NEON_PROJECT_ID != ''
+        env:
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: node scripts/auth-audit.mjs --branch production
 
   itest:
     runs-on: ubuntu-latest
@@ -57,3 +67,7 @@ jobs:
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         run: timeout 600 node scripts/itest.mjs --branch dev
+      - name: dev の DB に個人の情報が残っていないか（いま使った試験ユーザーは消えている）
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: node scripts/auth-audit.mjs --branch dev
