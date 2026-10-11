@@ -10,9 +10,11 @@ const SITE=env('SITE'),DATA=env('DATA_URL'),GAME=env('GAME_URL')+'/';env('AUTH_U
 const FAKE_JWT='Bearer eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiJ4In0.AAAA';
 const results=[],lat={};let failed=0;
 const took=(label,t)=>{if(!lat[label]){lat[label]=[]}lat[label].push(performance.now()-t)};
+// detail holds response text: line breaks are flattened so a response cannot forge extra log lines
 function check(name,ok,detail=''){
-  results.push({name,ok,detail});if(!ok)failed++;
-  console.log(`${ok?'ok  ':'NG  '} ${name}${detail?` — ${detail}`:''}`);
+  const d=String(detail).replace(/[\r\n]/g,' ');
+  results.push({name,ok,detail:d});if(!ok)failed++;
+  console.log(`${ok?'ok  ':'NG  '} ${name}${d?` — ${d}`:''}`);
 }
 async function timed(label,url,init={}){
   const t=performance.now();
