@@ -24,6 +24,10 @@
     "neonctl": "^6.2.3",
     "vite": "^8.3.1"
   },
+  "overrides": {
+    "@hono/node-server": "^2.0.10",
+    "diff": "^5.2.2"
+  },
   "engines": {
     "node": ">=22.12.0"
   }
