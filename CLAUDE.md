@@ -24,7 +24,7 @@
 | 読み取り | Neon Data API の RPC（`me`・`set_nickname`・`lobby_poll`・`game_poll`・`ranking`）。表には直接触れさせない（RLS 有効・権限なし） |
 | 手の処理 | Neon Function `game`（`server/game/`。`match`・`act`・`timeout`・`resign`）。DB の所有者として 1 リクエスト 1 トランザクション、ゲーム行をロック |
 | ホスティング | Cloudflare Pages（`gridpoker.pages.dev`）。ヘッダーは `public/_headers` |
-| 自動の確認 | GitHub Actions。`ci.yml`（`npm test`・ビルド）・`live.yml`（本番に届くか・ログインせずに読めるものが無いか・Mozilla HTTP Observatory が A+ か＝`scripts/live-check.mjs`。Variable `NEON_PROJECT_ID` と Secret `NEON_API_KEY` があれば本番の DB に個人の情報が残っていないか＝`scripts/auth-audit.mjs` と、dev で結合テストも）・`codeql.yml`。README のバッジ。脆弱性の知らせ方は `SECURITY.md` |
+| 自動の確認 | GitHub Actions。`ci.yml`（`npm test`・ビルド）・`live.yml`（本番に届くか・ログインせずに読めるものが無いか・Mozilla HTTP Observatory が A+ か＝`scripts/live-check.mjs`。Variable `NEON_PROJECT_ID` と Secret `NEON_API_KEY` があれば本番の DB に個人の情報が残っていないか＝`scripts/auth-audit.mjs` と、dev で結合テストも）・`codeql.yml`・`secrets.yml`（gitleaks で全履歴の秘密情報を検査）。README のバッジ。脆弱性の知らせ方は `SECURITY.md` |
 
 ### ゲーム設定（全ゲーム共通・固定。2026-10-02 さつき）
 
