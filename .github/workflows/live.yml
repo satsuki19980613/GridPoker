@@ -29,7 +29,7 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - name: 本番の通信確認と Observatory
         env:
           SITE: ${{ vars.APP_ORIGIN || 'https://gridpoker.pages.dev' }}
@@ -58,7 +58,7 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - name: マイグレーション（dev）
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
