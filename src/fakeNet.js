@@ -40,7 +40,7 @@ setInterval(()=>{
 export async function rpc(name,args={}){
   if(name==='me')return lag({...me,game:G?.status==='active'?G.id:null});
   if(name==='set_nickname'){const v=String(args.p_name||'').trim();if(!v||v.length>16)throw new FakeError('nickname_invalid');if(v.toLowerCase()==='bot-alpha')throw new FakeError('nickname_taken');me.nickname=v;return lag({nickname:v})}
-  if(name==='lobby_poll')return lag({game:G?.status==='active'?G.id:null,players:args.p_wait&&!(G?.status==='active')?[{uid:bot.uid,nickname:bot.nickname,rating:bot.rating}]:[]});
+  if(name==='lobby_poll')return lag({game:G?.status==='active'?G.id:null,players:args.p_wait&&G?.status!=='active'?[{uid:bot.uid,nickname:bot.nickname,rating:bot.rating}]:[]});
   if(name==='game_poll'){if(!G||args.p_game!==G.id)throw new FakeError('not_found');return lag({ver:G.ver,now:Date.now(),view:G.ver>args.p_ver?G.views[MY_SEAT]:null})}
   if(name==='ranking'){
     const rows=[{nickname:bot.nickname,rating:bot.rating,wins:7,losses:3,draws:0},{nickname:'Kei',rating:1611,wins:21,losses:9,draws:1},{nickname:'Mio',rating:1488,wins:4,losses:6,draws:0}];

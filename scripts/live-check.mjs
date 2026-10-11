@@ -9,7 +9,7 @@ const env=n=>{const v=process.env[n];if(!v){console.error(`環境変数 ${n} が
 const SITE=env('SITE'),DATA=env('DATA_URL'),GAME=env('GAME_URL')+'/';env('AUTH_URL');
 const FAKE_JWT='Bearer eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiJ4In0.AAAA';
 const results=[],lat={};let failed=0;
-const took=(label,t)=>{if(!lat[label])lat[label]=[];lat[label].push(performance.now()-t)};
+const took=(label,t)=>{if(!lat[label]){lat[label]=[]}lat[label].push(performance.now()-t)};
 function check(name,ok,detail=''){
   results.push({name,ok,detail});if(!ok)failed++;
   console.log(`${ok?'ok  ':'NG  '} ${name}${detail?` — ${detail}`:''}`);

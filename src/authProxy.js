@@ -13,8 +13,8 @@ export const NEON_AUTH_COOKIE=/^(__Secure-|__Host-)?neon-?auth\./;
 export const AUTH_PROXY_PREFIX='/api/auth';
 
 /** strip trailing (and leading) slashes with a loop: /\/+$/ backtracks quadratically on a long run of slashes in a request path */
-export function trimSlashEnd(s){let e=s.length;while(e>0&&s[e-1]==='/')e--;return s.slice(0,e)}
-const trimSlashes=s=>{let b=0;while(b<s.length&&s[b]==='/')b++;return trimSlashEnd(s.slice(b))};
+export function trimSlashEnd(s){let e=s.length;while(e>0&&s[e-1]==='/'){e--}return s.slice(0,e)}
+const trimSlashes=s=>{let b=0;while(b<s.length&&s[b]==='/'){b++}return trimSlashEnd(s.slice(b))};
 
 export function isProxiedPath(path){return PROXIED_PATHS.includes(trimSlashes(path))}
 
