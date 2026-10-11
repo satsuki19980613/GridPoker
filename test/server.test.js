@@ -6,7 +6,7 @@ import{cpuMove}from'../src/cpu.js';
 import{viewFor,logText}from'../src/view.js';
 import{applyRequest,eloDelta,nextDeadline,MoveError,TURN_MS,REVEAL_MS,GRACE_MS}from'../server/game/rules.js';
 import{createHandler}from'../server/game/handler.js';
-import{firstPartyCookie,authCookies,isProxiedPath}from'../src/authProxy.js';
+import{firstPartyCookie,authCookies,isProxiedPath,fromUpstream}from'../src/authProxy.js';
 
 test('a seat never sees the deck, the other hand, the other face-down cards or the other private log',()=>{
   for(let i=0;i<60;i++){
@@ -161,4 +161,15 @@ test('auth relay: first-party cookies, only Neon Auth cookies, only listed paths
   assert.equal(firstPartyCookie('__Secure-neon-auth.session_token=abc; Domain=x.neon.tech; Path=/; HttpOnly; Secure; SameSite=None; Partitioned'),'__Secure-neon-auth.session_token=abc; Path=/; HttpOnly; Secure; SameSite=Lax');
   assert.equal(authCookies('a=1; __Secure-neon-auth.session_token=t; gp=2'),'__Secure-neon-auth.session_token=t');
   assert.ok(isProxiedPath('/get-session')&&!isProxiedPath('admin/list-users'));
+});
+
+test('auth relay response: no-store, nosniff (Pages _headers do not apply to Functions), first-party Set-Cookie, no CORS',()=>{
+  const up=new Headers({'content-type':'application/json','access-control-allow-origin':'*','content-encoding':'gzip'});
+  up.append('set-cookie','__Secure-neon-auth.a=1; Domain=x.neon.tech; Secure; SameSite=None');
+  const r=fromUpstream(new Response('{}',{status:200,headers:up}));
+  assert.equal(r.headers.get('cache-control'),'no-store');
+  assert.equal(r.headers.get('x-content-type-options'),'nosniff');
+  assert.equal(r.headers.get('access-control-allow-origin'),null);
+  assert.equal(r.headers.get('content-encoding'),null);
+  assert.deepEqual(r.headers.getSetCookie(),['__Secure-neon-auth.a=1; Secure; SameSite=Lax']);
 });

@@ -1,0 +1,10 @@
+/* Fonts are served from this site (no request to Google Fonts, so opening the page does not send the IP address to Google).
+   Vite copies the @fontsource files into assets. Japanese is split by character range and only the ranges in use are loaded.
+   Only the weights used in src/style.css: --f-num (Inter Tight) 400/500/600/700, --f-ui (Zen Kaku Gothic New) 400/500/700 */
+@import '@fontsource/inter-tight/400.css';
+@import '@fontsource/inter-tight/500.css';
+@import '@fontsource/inter-tight/600.css';
+@import '@fontsource/inter-tight/700.css';
+@import '@fontsource/zen-kaku-gothic-new/400.css';
+@import '@fontsource/zen-kaku-gothic-new/500.css';
+@import '@fontsource/zen-kaku-gothic-new/700.css';
