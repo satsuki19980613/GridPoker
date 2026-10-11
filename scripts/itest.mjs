@@ -24,7 +24,7 @@ try{
   await pool.query(`insert into neon_auth."user"(id,name,email,"emailVerified","createdAt","updatedAt") values ($1,'t1','t1@example.test',false,now(),now()),($2,'t2','t2@example.test',false,now(),now())`,U);
   // anonymous / other tables are closed
   let denied=false;try{await rpc(U[0],'select count(*) from public.games')}catch{denied=true}ok(denied,'authenticated cannot read games directly');
-  const m0=await rpc(U[0],'select public.me()'),m1=await rpc(U[1],'select public.me()');
+  const m0=await rpc(U[0],'select public.me()');await rpc(U[1],'select public.me()');
   ok(/^Player-[0-9A-F]{4}$/.test(m0.nickname)&&m0.rating===1500&&m0.game===null,'me() creates a profile '+m0.nickname);
   ok((await rpc(U[0],'select public.set_nickname($1)',['ItestA'])).nickname==='ItestA','set_nickname');
   let taken=false;try{await rpc(U[1],'select public.set_nickname($1)',['itesta'])}catch(e){taken=/nickname_taken/.test(e.message)}ok(taken,'nickname unique (case-insensitive)');
@@ -42,7 +42,7 @@ try{
   while(!v[0].over&&steps++<1500){
     const seat=actor(v[0]),g=structuredClone(v[seat]);
     // pick a move with the CPU on the seat's own view (opponent cards are unknown there)
-    const before={place:g.phase==='place'};const snap=JSON.stringify(g.board);
+    const snap=JSON.stringify(g.board);
     let move;
     if(g.phase==='place'){const h0=[...g.hands[seat]],empty=g.board.map((b,i)=>b?-1:i).filter(i=>i>=0);
       // the last cell ends the board (the clone moves on to the next one), so it is played directly
@@ -60,7 +60,7 @@ try{
   }
   ok(stale,'stale version is rejected');
   ok(v[0].over&&v[1].over,`game over after ${steps} moves · stacks ${v[0].stacks}`);
-  const res=v[0].meta.result;ok(res&&res.delta[0]===-res.delta[1],'rating delta '+res.delta);
+  const res=v[0].meta.result;ok(res?.delta[0]===-res?.delta[1],'rating delta '+res.delta);
   const p=await rpc(U[0],'select public.me()');ok(p.games===1&&p.rating===1500+res.delta[0]&&p.game===null,'profile updated');
   const rk=await rpc(U[0],'select public.ranking()');ok(rk.top.some(r=>r.nickname==='ItestA'&&r.me)&&rk.me.nickname==='ItestA','ranking lists A');
   let nf=false;try{await rpc(U[0],'select public.game_poll($1,-1)',['00000000-0000-4000-8000-000000000000'])}catch(e){nf=/not_found/.test(e.message)}ok(nf,'unknown game is not_found');
@@ -68,17 +68,17 @@ try{
   await rpc(U[1],'select public.lobby_poll(true)');const g2=(await db.match(U[0],U[1])).game;
   let early=false;try{await db.play(U[0],g2,{op:'timeout'})}catch(e){early=e.code==='not_yet'}ok(early,'time-out before the deadline is refused');
   await pool.query('update public.games set deadline_ms=$2 where id=$1',[g2,Date.now()-5000]);
-  const t=await db.play(U[1],g2,{op:'timeout'});ok(t.view.meta.strikes.some(x=>x===1),'time-out auto-moves for the player to act');
+  const t=await db.play(U[1],g2,{op:'timeout'});ok(t.view.meta.strikes.includes(1),'time-out auto-moves for the player to act');
   const rs=await db.play(U[1],g2,{op:'resign'});ok(rs.view.over&&rs.view.winner===0&&rs.view.forfeit.reason==='resign','resign ends the game');
   // games are deleted 7 days after their last change (finished or abandoned)
   await rpc(U[1],'select public.lobby_poll(true)');const g3=(await db.match(U[0],U[1])).game;
   await pool.query("update public.games set updated_at=now()-interval '8 days' where id=any($1::uuid[])",[[game,g3]]);
   await pool.query("update public.games set updated_at=now()-interval '6 days' where id=$1",[g2]);
   await rpc(U[0],'select public.me()');
-  const left=(await pool.query('select id from public.games where id=any($1::uuid[])',[[game,g2,g3]])).rows.map(r=>r.id);
-  ok(!left.includes(game)&&!left.includes(g3)&&left.includes(g2),'me() deletes games older than 7 days (finished and abandoned), keeps newer ones');
+  const left=new Set((await pool.query('select id from public.games where id=any($1::uuid[])',[[game,g2,g3]])).rows.map(r=>r.id));
+  ok(!left.has(game)&&!left.has(g3)&&left.has(g2),'me() deletes games older than 7 days (finished and abandoned), keeps newer ones');
   const p2=await rpc(U[0],'select public.me()');ok(p2.game===null&&p2.games===2,'purge does not touch ratings or records');
   let denied2=false;try{await rpc(U[0],'select public.purge_old_games()')}catch{denied2=true}ok(denied2,'players cannot call purge_old_games directly');
 }finally{await clean();await pool.end()}
 // the CPU needs an opponent hand of the right size; unknown cards stay unknown (null) and are only counted
-function fill(g){g.deck=Array(60).fill(0);return g}
+function fill(g){g.deck=new Array(60).fill(0);return g}

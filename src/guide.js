@@ -16,7 +16,7 @@ const FIN=[['A♠',1],['5♦',0],['J♣',1],['8♠',0],['3♥',1],
 const OPEN=[0,1,7,8,11,12,16];                 // cells filled when the sample starts
 const L3=2,ROW3=lineCells(L3);                 // Line 3 (cells a3–e3) is the line the sample completes
 // pots start empty: a line's ante is posted when the line completes. P3(n) = only Line 3 has a pot (n)
-const P3=n=>{const a=Array(10).fill(null);a[L3]=n;return a};
+const P3=n=>{const a=new Array(10).fill(null);a[L3]=n;return a};
 // pots at the end of board 1 (Line 1–5, Line a–e) and who took them; the last two (Line 5, Line e) complete and are decided in the final step
 // (YOU: 200 + 15 (Line 3) + 10 (the other lines) = 225 / OPP 175 before them; +10 +10 antes and both pots to YOU -> 235 / 165)
 // (the last two, decided on screen: YOU holds J♥ 6♦ 8♣ + the drawn Q♥ -> Line 5 Flush Q-high beats OPP's Flush T-high, Line e One Pair JJ beats One Pair 22)
@@ -70,7 +70,7 @@ function build(root){
   // swipe left / right on the animation
   let sx=null,sy=0;
   ui.stage.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY});
-  ui.stage.addEventListener('pointerup',e=>{if(sx===null)return;const dx=e.clientX-sx,dy=e.clientY-sy;sx=null;if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy)*1.5)go(cur+(dx<0?1:-1))});
+  ui.stage.addEventListener('pointerup',e=>{if(sx===null)return;const dx=e.clientX-sx,dy=e.clientY-sy;sx=null;if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy)*1.5)void go(cur+(dx<0?1:-1))});
   ui.stage.addEventListener('pointercancel',()=>{sx=null});
 }
 
@@ -91,7 +91,7 @@ const strip=h=>{ui.strip.innerHTML=h};
 function scene(s){
   for(let i=0;i<25;i++){const f=s.cells.includes(i)?FIN[i]:null;setCell(i,f&&{...f,face:f.o===0||(s.rev||[]).includes(i)})}
   ui.cells.forEach(el=>el.className='cell');
-  S.pots=[...(s.pots||Array(10).fill(null))];S.done=[...(s.done||Array(10).fill(null))];
+  S.pots=[...(s.pots||new Array(10).fill(null))];S.done=[...(s.done||new Array(10).fill(null))];
   for(let L=0;L<10;L++)setPot(L,S.pots[L],S.done[L]);
   setHand(0,s.hands?s.hands[0]:[]);setHand(1,s.hands?s.hands[1]:[],s.opFace);
   stack(0,s.stacks?s.stacks[0]:'');stack(1,s.stacks?s.stacks[1]:'');
@@ -256,7 +256,7 @@ async function stepRedeal(x){
   await x.wait(2000);
 }
 async function stepEnd(x){
-  const all=[...Array(25).keys()],pots=[...END_POT],done=END_W.map((w,L)=>L===4||L===9?null:w);pots[4]=null;pots[9]=null;
+  const all=[...new Array(25).keys()],pots=[...END_POT],done=END_W.map((w,L)=>L===4||L===9?null:w);pots[4]=null;pots[9]=null;
   scene({cells:all.filter(i=>i!==24),rev:all,hands:[NEW0,NEW1],pots,done,stacks:[225,175]});
   await x.wait(800);
   ui.cells[24].classList.add('target');
@@ -295,7 +295,7 @@ const B2_0=ks(['Q♠','8♥','5♣','K♦']),B2_1=ks(['3♥','9♠','J♦','6♣
 // Numbers: 235 / 165 at the start of board 2; the other lines decided so far net YOU +110 -> 345 / 55 (400 in all); ante 10 -> 335 / 45
 const END2_POT=[20,140,60,60,null,null,100,20,20,null],END2_W=[1,0,0,1,null,null,0,1,0,null];
 async function stepBust(x){
-  const all=[...Array(25).keys()];
+  const all=[...new Array(25).keys()];
   scene({cells:all.filter(i=>i!==20&&i!==24),rev:all,hands:[NEW0,NEW1],pots:END2_POT,done:END2_W,stacks:[345,55]});
   await x.wait(900);
   ui.cells[24].classList.add('target');
@@ -340,13 +340,13 @@ async function go(i){
     }
   }catch(e){if(e!==STOP)throw e}
 }
-function onKey(e){if(e.key==='ArrowRight')go(cur+1);else if(e.key==='ArrowLeft')go(cur-1)}
+function onKey(e){if(e.key==='ArrowRight')void go(cur+1);else if(e.key==='ArrowLeft')void go(cur-1)}
 
 // open: start from step 1 (or the step left last time in this session); close: stop everything
 function startGuide(root){
   if(!ui)build(root);
   document.addEventListener('keydown',onKey);
-  go(cur);
+  void go(cur);
 }
 function stopGuide(){halt();document.removeEventListener('keydown',onKey)}
 

@@ -15,7 +15,7 @@ let G=null;
 let ui={popIdx:0,busy:false,snap:null,push:[],stackHold:false,disp:null,cpuGen:-1,plate:null,holdUntil:0,lockUntil:0,sel:null,raiseTo:null,hover:null,showLine:null,lastLogLen:0,timer:null,flip:new Set(),handGen:-1,newCard:null,overShown:false};
 const SUIT_JA=['スペード','ハート','ダイヤ','クラブ'];
 const opTag=()=>MODE==='pvp'?'OPP':'CPU';
-const opName=()=>MODE==='pvp'&&G&&G.meta?G.meta.names[OP]:'CPU';
+const opName=()=>MODE==='pvp'&&G?.meta?G.meta.names[OP]:'CPU';
 const sc=p=>p===ME?0:1; // colour class: 0 = you (blue), 1 = opponent (orange)
 const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -33,7 +33,7 @@ const anteOf=L=>Math.min(G.ante??G.cfg.ante,G.contrib[L][0],G.contrib[L][1]);
 // late-ante games ('late'): a line's ante is posted when the line completes, so until then its pot is empty and the ante shown is the one to come
 const pendingAnte=L=>G.cfg.anteMode==='late'&&!G.done[L]&&G.contrib[L][0]+G.contrib[L][1]===0;
 // the ante that line L will post: a line waiting in the queue (completed with the line now being bet) posts what the stacks allow then
-const anteDue=L=>G.queue&&G.queue.includes(L)?Math.min(G.ante??G.cfg.ante,...G.stacks):G.ante??G.cfg.ante;
+const anteDue=L=>G.queue?.includes(L)?Math.min(G.ante??G.cfg.ante,...G.stacks):G.ante??G.cfg.ante;
 const AV={'ベット':'bet','レイズ':'raise','コール':'call','チェック':'check','フォールド':'fold'};
 const PL={bet:'BET',raise:'RAISE',call:'CALL',check:'CHECK',fold:'FOLD',place:'配置'};
 const PLATE_MS=2400,HOLD_BET=1400,HOLD_PLACE=450,LOCK_MS=450;
@@ -44,7 +44,7 @@ function noteCpu(ph,hb){
   if(last){
     const k=AV[last.a];ui.plate={k,amt:k==='check'||k==='fold'?null:last.to,v:last.to-anteOf(last.L),L:last.L,t:now};ui.holdUntil=now+HOLD_BET;
     if(actor(G)===ME&&G.phase==='betting')ui.lockUntil=now+LOCK_MS;
-  }else if(ph==='place'&&actor(G)!==null&&G.lastCell!==null&&G.board[G.lastCell]&&G.board[G.lastCell].owner===OP){
+  }else if(ph==='place'&&actor(G)!==null&&G.lastCell!==null&&G.board[G.lastCell]?.owner===OP){
     ui.plate={k:'place',cell:G.lastCell,t:now};ui.holdUntil=now+HOLD_PLACE;
   }
 }
@@ -63,7 +63,7 @@ function myLast(L){const h=G.hist[L];for(let i=h.length-1;i>=0;i--)if(h[i].p===M
 function lastAgg(L,p){const h=G.hist[L];for(let i=h.length-1;i>=0;i--)if(h[i].p===p&&(h[i].a==='ベット'||h[i].a==='レイズ'))return h[i].a;return null}
 function lineState(L){
   const c=G.contrib[L],h=G.hist[L],inSd=G.phase==='betting'&&G.betting&&G.betting.line===L;
-  if(G.pendingSd&&G.pendingSd.includes(L))return{who:null,tag:'SD pending',short:`SD pending ${c[0]+c[1]}`,next:'SD pending. Hands are shown after the other line closes.'};
+  if(G.pendingSd?.includes(L))return{who:null,tag:'SD pending',short:`SD pending ${c[0]+c[1]}`,next:'SD pending. Hands are shown after the other line closes.'};
   if(!inSd)return{who:null,tag:'',short:`ante ${pendingAnte(L)?anteDue(L):c[0]}`,next:''};
   if(c[0]!==c[1]){
     const hi=c[ME]>c[OP]?ME:OP,lo=1-hi,act=AV[lastAgg(L,hi)]||'raise',tc=Math.min(c[hi]-c[lo],G.stacks[lo]);
@@ -71,7 +71,7 @@ function lineState(L){
   }
   const ta=G.betting.toAct,next=`${WS(ta)}：check${raiseRange(G,ta,L)?' / bet':''}`;
   const last=h[h.length-1];
-  if(last&&last.a==='チェック')return{who:last.p,tag:`${WS(last.p)} check`,short:`${WS(last.p)} check`,next};
+  if(last?.a==='チェック')return{who:last.p,tag:`${WS(last.p)} check`,short:`${WS(last.p)} check`,next};
   return{who:null,tag:'to act',short:'to act',next};
 }
 function histHTML(L){
@@ -99,7 +99,7 @@ function hideTip(){const t=$('#tip');if(t){t.hidden=true;ui.tipLine=null}}
 /* ---------- main screen ---------- */
 function render(){
   if(!G)return;
-  const placed=G.board.filter(x=>x).length;
+  const placed=G.board.filter(Boolean).length;
   const bn=G.boardNo||1;
   $('#roundLbl').innerHTML=`<span class="bno">B${bn}</span><span class="bar"><i style="transform:scaleX(${placed/25})"></i></span><b>${placed}</b><span>/ 25</span>`;
   $('#roundLbl').setAttribute('aria-label',`盤面${bn}・ante ${G.ante??G.cfg.ante}・配置済み ${placed} / 25マス`);
@@ -149,7 +149,7 @@ function buildBoard(){
   ui.bd=bd;
 }
 function renderBoard(){
-  if(!ui.bd||!ui.bd.corner.isConnected)buildBoard();
+  if(!ui.bd?.corner.isConnected)buildBoard();
   const bd=ui.bd,hl=hlSet(),hlCells=new Set();for(const L of hl)lineCells(L).forEach(c=>hlCells.add(c));
   const canPlace=G.phase==='place'&&actor(G)===ME&&ui.sel!==null&&!popup()&&!ui.busy;
   const bc=bestCombo();
@@ -176,8 +176,8 @@ function renderBoard(){
   const ae=bd.corner.querySelector('em'),at=`ante ${G.ante??G.cfg.ante}`;if(ae.textContent!==at)ae.textContent=at;
   for(let cell=0;cell<25;cell++){
     const el=bd.cells[cell],b=G.board[cell];
-    let cls='cell';if(hlCells.has(cell))cls+=' hl';if(hotCells.has(cell))cls+=' hot';if(bc&&bc.cells.includes(cell))cls+=bc.tri.includes(cell)?' best':' nobest';
-    if(b&&b.rev)cls+=' rev';
+    let cls='cell';if(hlCells.has(cell))cls+=' hl';if(hotCells.has(cell))cls+=' hot';if(bc?.cells.includes(cell))cls+=bc.tri.includes(cell)?' best':' nobest';
+    if(b?.rev)cls+=' rev';
     if(!b&&canPlace)cls+=' target';
     setCls(el,cls);
     setHTML(el,b?(b.owner===ME||b.rev?cardHTML(b.card,{owner:b.owner}):cardHTML(null)):'');
@@ -187,7 +187,7 @@ function renderBoard(){
 }
 // one-shot effects on the board (Web Animations: later updates never replay them)
 const EASE='cubic-bezier(.2,.8,.2,1)';
-function cardAt(cell){return ui.bd&&ui.bd.cells[cell].querySelector('.card')}
+function cardAt(cell){return ui.bd?.cells[cell].querySelector('.card')}
 function dropFx(cell){
   const c=cardAt(cell);if(!c)return;
   c.animate([{transform:'translateY(-6px) scale(1.04)',opacity:0},{transform:'none',opacity:1}],{duration:280,easing:EASE});
@@ -226,7 +226,7 @@ function renderHand(){
     for(const[c,b]of keep)was.set(c,b.getBoundingClientRect().left);
     const nodes=hand.map(c=>{let b=keep.get(c);if(!b){b=document.createElement('button');b.className='hcard';b.dataset.card=c;b.innerHTML=cardHTML(c);b._deal=true}return b});
     for(const b of old)if(!nodes.includes(b))b.remove();
-    nodes.forEach(b=>box.insertBefore(b,cap));
+    nodes.forEach(b=>cap.before(b));
     if(!REDUCE)nodes.forEach((b,i)=>{
       const card=b.firstElementChild;
       if(b._deal){b._deal=false;if(fresh||(showNew&&+b.dataset.card===nd))card.animate([{transform:'translateY(-24px) rotate(-5deg)',opacity:0},{transform:'none',opacity:1}],{duration:450,delay:fresh?i*90+120:0,easing:EASE,fill:'backwards'});return}
@@ -235,7 +235,7 @@ function renderHand(){
     });
   }
   [...box.querySelectorAll('.hcard')].forEach((b,i)=>{
-    const c=+b.dataset.card,best=bc&&bc.pair.includes(c);
+    const c=+b.dataset.card,best=bc?.pair.includes(c);
     setCls(b,`hcard${bc?(best?' best':' nobest'):''}${ui.sel===c?' sel':''}`);
     b.disabled=!my;setAttr(b,'aria-pressed',String(ui.sel===c));setAttr(b,'aria-label',`Hand card ${i+1}${best?' (best)':''}`);
   });
@@ -377,7 +377,7 @@ const FLIP_STEP=110,FLIP_MS=500,SD_BEAT=850,PUSH_MS=650;
 function afterChange(){
   ui.lastLogLen=G.log.length;
   const now=Date.now(),fresh=[];
-  const rev=new Set();G.board.forEach((b,i)=>{if(b&&b.rev)rev.add(i)});for(const i of rev)if(!prevRev.has(i))fresh.push(i);prevRev=rev;
+  const rev=new Set();G.board.forEach((b,i)=>{if(b?.rev)rev.add(i)});for(const i of rev)if(!prevRev.has(i))fresh.push(i);prevRev=rev;
   const occ=new Set();G.board.forEach((b,i)=>{if(b)occ.add(i)});const placed=[...occ].filter(i=>!prevOcc.has(i));prevOcc=occ;
   fresh.sort((a,b)=>a-b);
   // board reveal: one card at a time, then a beat before anyone acts
@@ -393,13 +393,13 @@ function afterChange(){
   hideTip();render();
   if(!REDUCE){if(placed.length<=2)placed.filter(c=>!fresh.includes(c)).forEach(dropFx);if(fresh.length<=10)fresh.forEach((c,k)=>flipFx(c,k*FLIP_STEP))}
   // chips into the pot
-  if(prev)for(let L=0;L<10;L++)for(const p of[ME,OP]){const d=ui.snap.contrib[L][p]-prev.contrib[L][p];if(d>0)fly(p===ME?'#youStack .val':'#seatCpu .stack .val',`#board .podwrap[data-pl="${L}"] .pod`,d,p)}
+  if(prev)for(let L=0;L<10;L++)for(const p of[ME,OP]){const d=ui.snap.contrib[L][p]-prev.contrib[L][p];if(d>0)fly(p===ME?'#youStack .val':'#seatCpu .stack .val',`#board .podwrap[data-pl="${L}"] .pod`,d,p,0)}
   if(!popup()&&ui.push.length)releasePush();else tweenStacks();
   syncModals();schedule();
 }
-function fly(fromSel,toSel,label,p,delay=0,done){
+function fly(fromSel,toSel,label,p,delay,done){
   const a=$(fromSel),b=$(toSel);
-  if(REDUCE||!a||!b){done&&done();return}
+  if(REDUCE||!a||!b){done?.();return}
   const ra=a.getBoundingClientRect(),rb=b.getBoundingClientRect();
   const el=document.createElement('div');el.className='fly '+(p===ME?'y':'c');el.textContent=label;document.body.appendChild(el);
   const w=el.offsetWidth,h=el.offsetHeight,x0=ra.left+ra.width/2-w/2,y0=ra.top+ra.height/2-h/2,x1=rb.left+rb.width/2-w/2,y1=rb.top+rb.height/2-h/2;
@@ -408,7 +408,7 @@ function fly(fromSel,toSel,label,p,delay=0,done){
     {transform:`translate(${x0}px,${y0}px) scale(1)`,opacity:1,offset:.15},
     {transform:`translate(${x1}px,${y1}px) scale(1)`,opacity:1,offset:.85},
     {transform:`translate(${x1}px,${y1}px) scale(.7)`,opacity:0}],{duration:PUSH_MS,delay,easing:'cubic-bezier(.3,.7,.2,1)',fill:'both'});
-  let ended=false;const end=()=>{if(ended)return;ended=true;el.remove();const t=$(toSel);if(t&&t.animate&&!document.hidden)t.animate([{transform:'scale(1)'},{transform:'scale(1.14)'},{transform:'scale(1)'}],{duration:280,easing:'ease-out'});done&&done()};
+  let ended=false;const end=()=>{if(ended)return;ended=true;el.remove();const t=$(toSel);if(t?.animate&&!document.hidden)t.animate([{transform:'scale(1)'},{transform:'scale(1.14)'},{transform:'scale(1)'}],{duration:280,easing:'ease-out'});done?.()};
   an.onfinish=end;setTimeout(end,PUSH_MS+delay+150); // safety: hidden tabs pause animations
 }
 // pot -> winner, then the stacks count up
@@ -497,7 +497,7 @@ $('#resDlg').addEventListener('cancel',e=>{e.preventDefault();if(popup()){ui.pop
 $('#logBtn').addEventListener('click',openLog);
 $('#themeToggle').addEventListener('click',()=>{
   const r=document.documentElement,cur=r.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'),next=cur==='dark'?'light':'dark';
-  r.dataset.theme=next;try{localStorage.setItem('gp-theme',next)}catch(e){}
+  r.dataset.theme=next;try{localStorage.setItem('gp-theme',next)}catch{/* storage blocked: the choice lasts this visit */}
   const t=$('#themeToggle');if(t.animate&&!REDUCE)t.animate([{transform:'rotate(0deg)'},{transform:'rotate(180deg)'}],{duration:500,easing:'cubic-bezier(.2,.8,.2,1)'});
 });
 $('#rulesBtn').addEventListener('click',()=>{openDlg('#rulesDlg');startGuide($('#guide'))});
@@ -517,7 +517,7 @@ let fitKey='';
 function fits(side,rows){
   const app=$('.app'),st=$('.stage');
   if(side){
-    const cs=getComputedStyle(app),inner=app.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);
+    const cs=getComputedStyle(app),inner=app.clientHeight-Number.parseFloat(cs.paddingTop)-Number.parseFloat(cs.paddingBottom);
     if(app.scrollHeight>app.clientHeight+1||app.scrollWidth>app.clientWidth+1||$('#board').offsetHeight>inner)return false;
   }
   else if(st.scrollHeight>st.clientHeight||st.scrollWidth>st.clientWidth)return false;
@@ -554,14 +554,14 @@ addEventListener('resize',refit);
 if(window.ResizeObserver)new ResizeObserver(refit).observe(document.querySelector('.app'));
 addEventListener('orientationchange',refit);
 if(window.visualViewport)visualViewport.addEventListener('resize',refit);
-if(document.fonts&&document.fonts.ready)document.fonts.ready.then(refit);
+document.fonts?.ready.then(refit);
 
 /* ---------- screens ---------- */
 function showScreen(n){document.body.dataset.screen=n;hideTip();if(n!=='game'){document.body.classList.remove('side','compact');fitKey=''}}
 function toMenu(){
   stopPvp();MODE=null;clearTimeout(ui.timer);clearTimeout(ui.holdTimer);
   document.querySelectorAll('dialog[open]').forEach(d=>d.close());
-  showScreen('menu');if(user)refreshMe();
+  showScreen('menu');if(user)void refreshMe();
 }
 function onMenuBtn(){
   if(MODE==='pvp'&&G&&!G.over)return confirmBox('投了してメニューに戻る','投了',resign);
@@ -576,7 +576,7 @@ function confirmBox(title,okLabel,onOk){
 const TURN_MS=60000;
 const srvNow=()=>Date.now()+(PV?PV.offset:0);
 function clockLeft(){
-  if(MODE!=='pvp'||!G||G.over||!G.meta||G.meta.deadline==null||actor(G)===null)return null;
+  if(MODE!=='pvp'||!G||G.over||G.meta?.deadline==null||actor(G)===null)return null;
   return Math.max(0,G.meta.deadline-srvNow());
 }
 function clockHTML(){return clockLeft()===null?'':'<span class="secs" id="secs"></span>'}
@@ -595,7 +595,7 @@ function enterGame(id){
   PV={game:id,ver:-1,offset:0,t:null,dead:false,claiming:false};MODE='pvp';G=null;
   resetTable();showScreen('game');
   $('#action').className='dock idle';$('#action').innerHTML='<span class="dots"><i></i><i></i><i></i></span>';
-  pvpPoll();
+  void pvpPoll();
 }
 function applyView(v){
   if(!v||!PV||v.meta.game!==PV.game||v.meta.ver<=PV.ver)return;
@@ -620,7 +620,7 @@ async function pvpPoll(){
     // the opponent is past their time: the server plays for them (check/fold or a random placement)
     if(G&&!G.over&&actor(G)===OP&&G.meta.deadline!=null&&srvNow()>G.meta.deadline+2000&&!pv.claiming){
       pv.claiming=true;
-      try{const x=await net.game({op:'timeout',game:pv.game});if(PV===pv)applyView(x.view)}catch(e){}
+      try{const x=await net.game({op:'timeout',game:pv.game});if(PV===pv)applyView(x.view)}catch{/* the next poll retries */}
       finally{pv.claiming=false}
     }
   }catch(e){
@@ -628,7 +628,7 @@ async function pvpPoll(){
     if(e.code==='not_found'){toast('ゲームが見つかりません');return toMenu()}
     if(e.code==='not_authenticated')return;
   }
-  if(PV!==pv||(G&&G.over))return;
+  if(PV!==pv||G?.over)return;
   const fast=!G||actor(G)===OP;
   pv.t=setTimeout(pvpPoll,document.hidden?4000:fast?1000:2500);
 }
@@ -640,7 +640,7 @@ async function pvpMove(move){
     ui.busy=false;ui.sel=null;ui.hover=null;applyView(r.view);
   }catch(e){
     ui.busy=false;
-    if(['stale','not_your_turn','game_over'].includes(e.code))pvpPoll();
+    if(['stale','not_your_turn','game_over'].includes(e.code))void pvpPoll();
     else toast(e.code==='illegal'?'その操作はできない':'通信エラー。もう一度');
     render();
   }
@@ -648,9 +648,9 @@ async function pvpMove(move){
 async function resign(){
   if(!PV)return;
   try{const r=await net.game({op:'resign',game:PV.game});applyView(r.view)}
-  catch(e){if(e.code==='game_over')pvpPoll();else toast('通信エラー。もう一度')}
+  catch(e){if(e.code==='game_over')void pvpPoll();else toast('通信エラー。もう一度')}
 }
-document.addEventListener('visibilitychange',()=>{if(document.hidden)return;if(PV)pvpPoll();if(LB.on)lobbyTick()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)return;if(PV)void pvpPoll();if(LB.on)void lobbyTick()});
 
 /* ---------- account ---------- */
 let user=null,prof=null;
@@ -669,7 +669,7 @@ async function refreshMe(){
 }
 async function login(after){
   try{const u=new URL(location.origin+'/');if(after)u.searchParams.set('after',after);await net.signIn(u.toString())}
-  catch(e){toast('ログインを開始できませんでした')}
+  catch{toast('ログインを開始できませんでした')}
 }
 function openProfile(){
   if(!prof)return;
@@ -688,7 +688,7 @@ async function saveNick(){
 }
 async function logout(){
   stopLobby(true);$('#profDlg').close();
-  try{await net.signOut()}catch(e){}
+  try{await net.signOut()}catch{/* signed out here either way */}
   user=null;prof=null;renderAcct();
 }
 
@@ -716,7 +716,7 @@ async function startLobby(){
   if(!user)return login('pvp');
   if(!prof&&!(await refreshMe()))return;
   if(prof.game)return enterGame(prof.game);
-  LB.on=true;LB.loaded=false;LB.players=[];renderLobby();lobbyTick();
+  LB.on=true;LB.loaded=false;LB.players=[];renderLobby();void lobbyTick();
 }
 function stopLobby(tell){
   if(!LB.on)return;LB.on=false;clearTimeout(LB.t);renderLobby();
@@ -725,7 +725,7 @@ function stopLobby(tell){
 async function challenge(btn){
   if(LB.busy)return;LB.busy=true;btn.disabled=true;
   try{const r=await net.game({op:'match',target:btn.dataset.uid});enterGame(r.game)}
-  catch(e){toast(e.code==='gone'?'そのプレイヤーは対戦を始めました':'通信エラー。もう一度');lobbyTick()}
+  catch(e){toast(e.code==='gone'?'そのプレイヤーは対戦を始めました':'通信エラー。もう一度');void lobbyTick()}
   finally{LB.busy=false}
 }
 
@@ -739,17 +739,17 @@ async function openRanking(){
     const row=x=>`<li class="${x.me?'me':''}${x.rank===1?' top1':''}"><span class="rk">${x.rank}</span><span class="nm2">${esc(x.nickname)}</span><span class="rec">${x.wins}-${x.losses}${x.draws?'-'+x.draws:''}</span><span class="rt">${x.rating}</span></li>`;
     $('#rankBody').innerHTML=top+(r.top.length?`<ol class="rank">${r.top.map(row).join('')}</ol>`:'<div class="empty-note">まだ対戦記録がありません</div>')+
       (r.me&&!r.top.some(x=>x.me)?`<ol class="rank rank-me">${row({...r.me,me:true})}</ol>`:'');
-  }catch(e){$('#rankBody').innerHTML=top+'<div class="empty-note">読み込めませんでした</div>'}
+  }catch{$('#rankBody').innerHTML=top+'<div class="empty-note">読み込めませんでした</div>'}
 }
 
 /* ---------- menu events ---------- */
 $('#vsCpu').addEventListener('click',()=>{stopLobby(true);startGame()});
 $('#vsPlayer').addEventListener('click',()=>LB.on?stopLobby(true):startLobby());
 $('#rankBtn').addEventListener('click',openRanking);
-$('#lobby').addEventListener('click',e=>{const b=e.target.closest('.go');if(b)challenge(b)});
-$('#acct').addEventListener('click',e=>{if(e.target.closest('#loginBtn'))login('');else if(e.target.closest('#meBtn'))openProfile()});
-$('#profDlg').addEventListener('click',e=>{if(e.target.closest('#nickSave'))saveNick();else if(e.target.closest('#logoutBtn'))logout()});
-$('#profDlg').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='nickIn'){e.preventDefault();saveNick()}});
+$('#lobby').addEventListener('click',e=>{const b=e.target.closest('.go');if(b)void challenge(b)});
+$('#acct').addEventListener('click',e=>{if(e.target.closest('#loginBtn'))void login('');else if(e.target.closest('#meBtn'))openProfile()});
+$('#profDlg').addEventListener('click',e=>{if(e.target.closest('#nickSave'))void saveNick();else if(e.target.closest('#logoutBtn'))void logout()});
+$('#profDlg').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='nickIn'){e.preventDefault();void saveNick()}});
 realNet.onSessionLost(()=>{user=null;prof=null;stopLobby(false);renderAcct();if(MODE==='pvp'){toMenu();toast('ログインし直してください')}});
 
 /* ---------- boot ---------- */
@@ -759,13 +759,13 @@ async function boot(){
   if(!net.online)return;
   const u=new URL(location.href),after=u.searchParams.get('after');
   if(after!==null){u.searchParams.delete('after');history.replaceState(null,'',u.pathname+u.search+u.hash)}
-  try{user=await net.currentUser()}catch(e){user=null}
+  try{user=await net.currentUser()}catch{user=null}
   if(user)await refreshMe();else renderAcct();
   if(!user)return;
-  if(prof&&prof.game)return enterGame(prof.game);
-  if(after==='pvp')startLobby();
-  if(after==='rank')openRanking();
+  if(prof?.game)return enterGame(prof.game);
+  if(after==='pvp')void startLobby();
+  if(after==='rank')void openRanking();
 }
-boot();
+void boot();
 // installable as an app (home screen). The worker caches nothing (public/sw.js)
 if('serviceWorker' in navigator&&!import.meta.env.DEV)addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));

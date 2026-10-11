@@ -16,7 +16,7 @@ export function makeDb(pool){
   return{
     // start a game against a waiting player
     match:(uid,target)=>tx(pool,async c=>{
-      for(const u of[uid,target].sort())await c.query('select pg_advisory_xact_lock(hashtextextended($1,0))',[u]);
+      for(const u of[uid,target].sort((a,b)=>(a<b?-1:1)))await c.query('select pg_advisory_xact_lock(hashtextextended($1,0))',[u]);
       const act=await c.query("select id,p0,p1 from public.games where status='active' and (p0=any($1::uuid[]) or p1=any($1::uuid[]))",[[uid,target]]);
       const mine=act.rows.find(r=>r.p0===uid||r.p1===uid);
       if(mine)return{game:mine.id};
@@ -37,8 +37,8 @@ export function makeDb(pool){
     // act / timeout / resign on a game the caller plays in
     play:(uid,gameId,req)=>tx(pool,async c=>{
       const r=await c.query("select p0,p1,status,state,ver,deadline_ms,strikes,view0->'meta' as meta from public.games where id=$1 for update",[gameId]);
-      const row=r.rows[0];const seat=row?row.p0===uid?0:row.p1===uid?1:null:null;
-      if(seat===null)throw new MoveError('not_found');
+      const row=r.rows[0],seat=[row?.p0,row?.p1].indexOf(uid);
+      if(seat<0)throw new MoveError('not_found');
       if(row.status!=='active')throw new MoveError('game_over');
       const now=Date.now();
       const{state,strikes}=applyRequest({state:row.state,ver:row.ver,deadline:Number(row.deadline_ms),strikes:row.strikes},seat,req,now);

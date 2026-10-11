@@ -3,11 +3,13 @@
 //   Mozilla HTTP Observatory grades the site's protective headers.
 // env: SITE, AUTH_URL, DATA_URL, GAME_URL (production values: .env.production)
 import{appendFileSync}from'node:fs';
+import{trimSlashEnd}from'../src/authProxy.js';
 
-const env=n=>{const v=process.env[n];if(!v){console.error(`環境変数 ${n} が必要です`);process.exit(2)}return v.replace(/\/+$/,'')};
+const env=n=>{const v=process.env[n];if(!v){console.error(`環境変数 ${n} が必要です`);process.exit(2)}return trimSlashEnd(v)};
 const SITE=env('SITE'),DATA=env('DATA_URL'),GAME=env('GAME_URL')+'/';env('AUTH_URL');
 const FAKE_JWT='Bearer eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiJ4In0.AAAA';
 const results=[],lat={};let failed=0;
+const took=(label,t)=>{if(!lat[label])lat[label]=[];lat[label].push(performance.now()-t)};
 function check(name,ok,detail=''){
   results.push({name,ok,detail});if(!ok)failed++;
   console.log(`${ok?'ok  ':'NG  '} ${name}${detail?` — ${detail}`:''}`);
@@ -16,8 +18,8 @@ async function timed(label,url,init={}){
   const t=performance.now();
   let r,body;
   try{r=await fetch(url,{redirect:'manual',...init});body=await r.text()}
-  catch(e){(lat[label]??=[]).push(performance.now()-t);return{status:0,headers:new Headers(),body:String(e.cause??e),json:null}}
-  (lat[label]??=[]).push(performance.now()-t);
+  catch(e){took(label,t);return{status:0,headers:new Headers(),body:String(e.cause??e),json:null}}
+  took(label,t);
   let json=null;try{json=JSON.parse(body)}catch{/* not json */}
   return{status:r.status,headers:r.headers,body,json};
 }
@@ -53,19 +55,20 @@ for(const p of['/manifest.webmanifest','/sw.js','/theme.js','/icon.svg']){const 
 const ok=await timed('auth relay',SITE+'/api/auth/ok');
 check('ログイン中継 /api/auth/ok が 200',ok.status===200,`${ok.status} ${ok.body.slice(0,80)}`);
 const sess=await timed('auth relay',SITE+'/api/auth/get-session');
-check('未ログインの get-session が 200・利用者なし',sess.status===200&&!(sess.json&&sess.json.user),`${sess.status} ${sess.body.slice(0,80)}`);
+check('未ログインの get-session が 200・利用者なし',sess.status===200&&!sess.json?.user,`${sess.status} ${sess.body.slice(0,80)}`);
 const tok=await timed('auth relay',SITE+'/api/auth/token');
 check('未ログインの token が 401',tok.status===401,`${tok.status} ${tok.body.slice(0,80)}`);
 const so=await timed('auth relay',SITE+'/api/auth/sign-in/social',{method:'POST',headers:{'Content-Type':'application/json',Origin:SITE},
   body:JSON.stringify({provider:'google',callbackURL:SITE+'/',errorCallbackURL:SITE+'/?error=login_failed',disableRedirect:true})});
 // with Neon's shared OAuth app the sign-in goes through Neon Auth first, then to Google: follow it to Google's consent screen
-let gurl=so.json&&so.json.url||'';const hops=[];
-for(let i=0;i<4&&gurl&&!/^https:\/\/accounts\.google\.com\//.test(gurl);i++){
+const GOOGLE='https://accounts.google.com/';
+let gurl=so.json?.url||'';const hops=[];
+for(let i=0;i<4&&gurl&&!gurl.startsWith(GOOGLE);i++){
   hops.push(new URL(gurl).host);
   const r=await timed('auth relay',gurl);
   gurl=r.headers.get('location')?new URL(r.headers.get('location'),gurl).href:'';
 }
-check('Google ログインの開始が Google の同意画面に着く',so.status===200&&/^https:\/\/accounts\.google\.com\//.test(gurl),`${so.status} ${[...hops,gurl&&new URL(gurl).host].join(' → ')||so.body.slice(0,120)}`);
+check('Google ログインの開始が Google の同意画面に着く',so.status===200&&gurl.startsWith(GOOGLE),`${so.status} ${[...hops,gurl&&new URL(gurl).host].join(' → ')||so.body.slice(0,120)}`);
 const sc=so.headers.getSetCookie();
 check('ログイン開始の Cookie がこのサイトのもの（Domain 無し・Secure）',sc.length>0&&sc.every(c=>!/;\s*domain=/i.test(c)&&/;\s*secure/i.test(c)),sc.map(c=>c.split(';')[0].split('=')[0]).join(', '));
 const nf=await timed('auth relay',SITE+'/api/auth/sign-up/email',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});

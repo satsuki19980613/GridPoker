@@ -6,7 +6,7 @@ import{actor}from'./engine.js';
 import{cpuMove}from'./cpu.js';
 
 const q=new URLSearchParams(location.search);
-const MY_SEAT=q.get('seat')==='1'?1:0,BOT_SEAT=1-MY_SEAT,IDLE=q.has('idle'),TURN=+(q.get('turn')||TURN_MS);
+const MY_SEAT=q.get('seat')==='1'?1:0,BOT_SEAT=1-MY_SEAT,IDLE=q.has('idle'),TURN=Number(q.get('turn')||TURN_MS);
 const me={nickname:'Satsuki',rating:1500,games:0,wins:0,losses:0,draws:0};
 const bot={uid:'00000000-0000-4000-8000-0000000000b0',nickname:'Bot-Alpha',rating:1532};
 let G=null; // {id,state,ver,deadline,strikes,meta,views,status}
@@ -16,8 +16,8 @@ class FakeError extends Error{constructor(code){super(code);this.code=code}}
 export const online=true;
 export const onSessionLost=()=>{};
 export async function currentUser(){return{id:'me'}}
-export async function signIn(){}
-export async function signOut(){}
+export async function signIn(){/* always signed in */}
+export async function signOut(){/* nothing to end */}
 
 function save(state,strikes){
   G.ver++;G.state=state;G.strikes=strikes;G.deadline=state.over?null:Date.now()+TURN;
@@ -38,9 +38,9 @@ setInterval(()=>{
 },1400);
 
 export async function rpc(name,args={}){
-  if(name==='me')return lag({...me,game:G&&G.status==='active'?G.id:null});
+  if(name==='me')return lag({...me,game:G?.status==='active'?G.id:null});
   if(name==='set_nickname'){const v=String(args.p_name||'').trim();if(!v||v.length>16)throw new FakeError('nickname_invalid');if(v.toLowerCase()==='bot-alpha')throw new FakeError('nickname_taken');me.nickname=v;return lag({nickname:v})}
-  if(name==='lobby_poll')return lag({game:G&&G.status==='active'?G.id:null,players:args.p_wait&&!(G&&G.status==='active')?[{uid:bot.uid,nickname:bot.nickname,rating:bot.rating}]:[]});
+  if(name==='lobby_poll')return lag({game:G?.status==='active'?G.id:null,players:args.p_wait&&!(G?.status==='active')?[{uid:bot.uid,nickname:bot.nickname,rating:bot.rating}]:[]});
   if(name==='game_poll'){if(!G||args.p_game!==G.id)throw new FakeError('not_found');return lag({ver:G.ver,now:Date.now(),view:G.ver>args.p_ver?G.views[MY_SEAT]:null})}
   if(name==='ranking'){
     const rows=[{nickname:bot.nickname,rating:bot.rating,wins:7,losses:3,draws:0},{nickname:'Kei',rating:1611,wins:21,losses:9,draws:1},{nickname:'Mio',rating:1488,wins:4,losses:6,draws:0}];
@@ -54,7 +54,7 @@ export async function rpc(name,args={}){
 export async function game(body){
   await lag(null);
   if(body.op==='match'){
-    if(G&&G.status==='active')return{game:G.id};
+    if(G?.status==='active')return{game:G.id};
     const state=createGame(),id=crypto.randomUUID(),names=[0,0],ratings=[0,0];
     names[MY_SEAT]=me.nickname;names[BOT_SEAT]=bot.nickname;ratings[MY_SEAT]=me.rating;ratings[BOT_SEAT]=bot.rating;
     G={id,state,ver:0,strikes:[0,0],status:'active',meta:{game:id,names,ratings,result:null}};save(state,[0,0]);
