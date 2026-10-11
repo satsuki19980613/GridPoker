@@ -554,7 +554,7 @@ addEventListener('resize',refit);
 if(window.ResizeObserver)new ResizeObserver(refit).observe(document.querySelector('.app'));
 addEventListener('orientationchange',refit);
 if(window.visualViewport)visualViewport.addEventListener('resize',refit);
-document.fonts?.ready.then(refit);
+void document.fonts?.ready.then(refit);
 
 /* ---------- screens ---------- */
 function showScreen(n){document.body.dataset.screen=n;hideTip();if(n!=='game'){document.body.classList.remove('side','compact');fitKey=''}}
